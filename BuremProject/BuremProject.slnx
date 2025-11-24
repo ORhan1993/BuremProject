@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Burem.API/Burem.API.csproj" />
+  <Project Path="Burem.Data/Burem.Data.csproj" />
+</Solution>
