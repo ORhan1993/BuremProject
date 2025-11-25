@@ -11,5 +11,8 @@ namespace Burem.API.Abstract
 
         // Arama kriterlerine göre öğrenci listesi getirir
         Task<List<object>> SearchStudentsAsync(SearchCriteriaDto criteria);
+
+        // --- YENİ EKLENECEK SATIR ---
+        Task<object> GetSessionDetailAsync(int sessionId);
     }
 }

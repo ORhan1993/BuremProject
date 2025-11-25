@@ -35,5 +35,23 @@ namespace Burem.API.Controllers
             var result = await _studentService.SearchStudentsAsync(criteria);
             return Ok(result);
         }
+
+        // StudentsController sýnýfýnýn içine ekle:
+
+        // GET: api/Students/session/13170
+        [HttpGet("session/{sessionId}")]
+        public async Task<IActionResult> GetSessionDetail(int sessionId)
+        {
+            var result = await _studentService.GetSessionDetailAsync(sessionId);
+
+            if (result == null)
+            {
+                return NotFound(new { message = "Baþvuru bulunamadý." });
+            }
+
+            return Ok(result);
+        }
     }
+
+
 }

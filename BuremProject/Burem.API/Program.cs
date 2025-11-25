@@ -33,6 +33,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<BuremDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddScoped<IStudentService, StudentConcrete>();
+builder.Services.AddScoped<ISessionService, SessionConcrete>();
 
 var app = builder.Build();
 

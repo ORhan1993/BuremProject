@@ -1,19 +1,83 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Card, Form, Input, Radio, Button, Spin, message, Descriptions, Tag, Space, Divider, Modal, Steps, Select, DatePicker, Alert, Table } from 'antd';
+import { Layout, Card, Form, Input, Radio, Button, Spin, message, Descriptions, Tag, Space, Divider, Modal, Steps, Select, DatePicker, Alert, Row, Col, Typography, Table } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, FileTextOutlined, EditOutlined, UserAddOutlined, UserOutlined, CalendarOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import agent from '../api/agent';
 import type { SessionDetailDTO, TherapistAvailability } from '../api/agent';
-
-// NOT: 'moment' importu kaldırıldı çünkü Ant Design v5 Dayjs kullanır ve
-// values.date.format() metodunu doğrudan destekler.
 
 const { Header, Content } = Layout;
 const { Step } = Steps;
 const { Option } = Select;
 
 // ============================================================================
-// ALT BİLEŞEN: RANDEVU VE ATAMA MODALI (WIZARD)
+// 1. STİLLER (Görsel Tasarım İçin)
+// ============================================================================
+const styles = {
+    // Üst Kısım: Gri Label - Beyaz Değer Kutusu
+    infoRow: {
+        display: 'flex',
+        marginBottom: '10px',
+        border: '1px solid #d9d9d9',
+        borderRadius: '4px',
+        overflow: 'hidden'
+    },
+    labelBox: {
+        backgroundColor: '#f5f5f5', // REFERANS GÖRSELDEKİ GRİ RENK
+        padding: '8px 12px',
+        width: '180px', // Sol tarafın sabit genişliği
+        borderRight: '1px solid #d9d9d9',
+        display: 'flex',
+        alignItems: 'center',
+        fontWeight: 600,
+        color: '#555',
+        fontSize: '13px'
+    },
+    valueBox: {
+        padding: '8px 12px',
+        flex: 1,
+        backgroundColor: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        minHeight: '40px',
+        fontSize: '14px',
+        color: '#333'
+    },
+    // Alt Kısım: Soru Kartı
+    questionCard: {
+        display: 'flex',
+        alignItems: 'stretch',
+        backgroundColor: '#fff',
+        border: '1px solid #d9d9d9',
+        borderRadius: '8px',
+        marginBottom: '15px',
+        overflow: 'hidden',
+        minHeight: '60px'
+    },
+    questionText: {
+        flex: 1,
+        padding: '15px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        fontStyle: 'italic',
+        color: '#444',
+        fontSize: '14px',
+        fontWeight: 500,
+        backgroundColor: '#fff'
+    },
+    answerContainer: {
+        width: 'auto',
+        minWidth: '300px',
+        borderLeft: '1px solid #d9d9d9', // DİKEY AYIRICI ÇİZGİ
+        padding: '10px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        backgroundColor: '#fff'
+    }
+};
+
+// ============================================================================
+// 2. RANDEVU MODALI BİLEŞENİ
 // ============================================================================
 interface AppointmentModalProps {
     visible: boolean;
@@ -47,7 +111,6 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName }: Appoint
             await agent.Appointments.create({
                 sessionId,
                 therapistId: selectedTherapist!.id,
-                // Ant Design v5 DatePicker 'Dayjs' objesi döner, .format() metodu vardır.
                 date: values.date ? values.date.format('DD.MM.YYYY') : '',
                 time: values.time,
                 type: values.type,
@@ -218,7 +281,7 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName }: Appoint
 };
 
 // ============================================================================
-// ANA SAYFA: BAŞVURU DETAY
+// 3. ANA SAYFA BİLEŞENİ
 // ============================================================================
 const SessionDetailPage = () => {
     const { id } = useParams();
@@ -264,58 +327,83 @@ const SessionDetailPage = () => {
         setLoading(true);
         try {
             const apiPayload = Object.keys(values).map(key => {
+                if (!key.startsWith('q_')) return null;
                 const qId = parseInt(key.split('_')[1]); 
                 return {
                     questionId: qId,
                     value: values[key]
                 };
-            });
+            }).filter(x => x !== null);
 
             await agent.Sessions.update(sessionData.sessionId, apiPayload);
-            message.success("Başvuru başarıyla güncellendi.");
+            message.success("Başvuru güncellendi.");
             navigate(`/admin/session/view/${sessionData.sessionId}`);
         } catch (error) {
-            message.error("Güncelleme sırasında hata oluştu.");
+            message.error("Hata oluştu.");
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading) return <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center'}}><Spin size="large" tip="Yükleniyor..." /></div>;
-    
-    if (!sessionData) return (
-        <div style={{padding:50, textAlign:'center'}}>
-            <h3>Başvuru Bulunamadı</h3>
-            <Button onClick={() => navigate(-1)}>Geri Dön</Button>
+    // Helper Component: Gri/Beyaz Satır (Sayfa içinde kullanım için)
+    const InfoRow = ({ label, value }: { label: string, value: React.ReactNode }) => (
+        <div style={styles.infoRow}>
+            <div style={styles.labelBox}>{label}</div>
+            <div style={styles.valueBox}>{value}</div>
         </div>
     );
 
+    if (loading) return <div style={{height:'100vh', display:'flex', justifyContent:'center', alignItems:'center'}}><Spin size="large" /></div>;
+    
+    if (!sessionData) return <div>Başvuru Bulunamadı</div>;
+
     return (
         <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-            <Header style={{ background: '#003366', padding: '0 24px', display:'flex', alignItems:'center', color:'white' }}>
-                <Button type="link" icon={<ArrowLeftOutlined />} style={{ color: 'white', marginRight: 10 }} onClick={() => navigate(-1)} />
-                <span style={{ fontSize: 18, fontWeight: 'bold' }}>
-                    {isEditMode ? "Başvuruyu Düzenle" : "Başvuru Detayı"} - #{sessionData.sessionId}
-                </span>
+            {/* Header Mavi Şerit */}
+            <Header style={{ background: '#003366', padding: '0 24px', display:'flex', alignItems:'center', justifyContent: 'space-between', height: '64px' }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <Button type="link" icon={<ArrowLeftOutlined />} style={{ color: 'white', marginRight: 10, fontSize: '16px' }} onClick={() => navigate(-1)} />
+                    <span style={{ fontSize: 18, fontWeight: 'bold', color: 'white' }}>
+                        Başvuru Detayı - #{sessionData.sessionId}
+                    </span>
+                </div>
+                <div style={{ color: 'white', opacity: 0.8 }}>
+                    {isEditMode ? "Düzenleme Modu" : "Görüntüleme Modu"}
+                </div>
             </Header>
 
-            <Content style={{ padding: '24px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
-                <Card style={{ marginBottom: 20, borderRadius: 8 }}>
-                    <Descriptions title="Başvuru Künyesi" bordered size="small">
-                        <Descriptions.Item label="Öğrenci">{sessionData.studentName}</Descriptions.Item>
-                        <Descriptions.Item label="Başvuru Tarihi">{sessionData.sessionDate}</Descriptions.Item>
-                        <Descriptions.Item label="Atanan Danışman">
-                            {sessionData.advisorName !== "Atanmamış" ? <Tag color="blue">{sessionData.advisorName}</Tag> : <span style={{color:'#999'}}>Atama Bekliyor</span>}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Durum">
-                             {isEditMode ? <Tag color="orange">Düzenleme Modu</Tag> : <Tag color="blue">Okuma Modu</Tag>}
-                        </Descriptions.Item>
-                    </Descriptions>
-                    
-                    <div style={{marginTop: 15, textAlign:'right'}}>
-                        <Space>
+            <Content style={{ padding: '24px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+                
+                {/* 1. KISIM: KÜNYE BİLGİLERİ (Görsel 1'deki Gri/Beyaz Grid) */}
+                <Card bordered={false} style={{ marginBottom: 20, borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                    <h3 style={{marginBottom: 20, color: '#003366'}}>Başvuru Künyesi</h3>
+                    <Row gutter={24}>
+                        <Col span={12}>
+                            <InfoRow label="Öğrenci" value={sessionData.studentName} />
+                            <InfoRow label="Öğrenci No" value="1000100100" />
+                            <InfoRow label="Başvuru Tarihi" value={sessionData.sessionDate} />
+                            <InfoRow label="Yerleşke" value={
+                                <Select 
+                                    defaultValue="Sarıtepe Yerleşkesi" 
+                                    bordered={false} 
+                                    style={{ width: '100%', marginLeft: -10 }} 
+                                    disabled={!isEditMode}
+                                >
+                                    <Option value="Kuzey">Kuzey Kampüs</Option>
+                                    <Option value="Sarıtepe Yerleşkesi">Sarıtepe Yerleşkesi</Option>
+                                </Select>
+                            } />
+                        </Col>
+                        <Col span={12}>
+                             <InfoRow label="Ön Görüşme Yapan" value="Başak Yılmaz" />
+                             <InfoRow label="Atanan Danışman" value={sessionData.advisorName !== "Atanmamış" ? <Tag color="blue">{sessionData.advisorName}</Tag> : <Tag>Bilinmiyor</Tag>} />
+                             <InfoRow label="Durum" value={isEditMode ? <Tag color="processing">Düzenleniyor</Tag> : <Tag color="success">Okuma Modu</Tag>} />
+                        </Col>
+                    </Row>
+
+                    <div style={{ marginTop: 20, textAlign: 'right' }}>
+                         <Space>
                             <Button 
-                                type="default" 
                                 style={{ borderColor: '#52c41a', color: '#52c41a' }} 
                                 icon={<UserAddOutlined />}
                                 onClick={() => setIsAppointmentModalOpen(true)}
@@ -336,57 +424,87 @@ const SessionDetailPage = () => {
                     </div>
                 </Card>
 
-                <Card title="Başvuru Soruları" style={{ borderRadius: 8 }}>
-                    <Form 
-                        form={form} 
-                        layout="vertical" 
-                        onFinish={handleSave}
-                        disabled={!isEditMode}
-                    >
-                        {sessionData.answers.map((q, index) => (
-                            <div key={q.questionId}>
-                                <Form.Item 
-                                    name={`q_${q.questionId}`} 
-                                    label={<span style={{fontWeight:600, color:'#333'}}>{index + 1}. {q.questionTitle}</span>}
-                                    rules={[{ required: true, message: 'Bu alan zorunludur' }]}
-                                >
-                                    {q.questionType === 1 ? (
-                                        <Input.TextArea rows={3} style={{ color: '#000' }} />
-                                    ) : (
-                                        <Radio.Group>
-                                            <Space wrap>
-                                                {q.options && q.options.length > 0 ? (
-                                                    q.options.map((opt) => (
-                                                        <Radio key={opt} value={opt}>{opt}</Radio>
-                                                    ))
-                                                ) : (
-                                                    <>
-                                                        <Radio value="0">0 (Hiç)</Radio>
-                                                        <Radio value="1">1 (Biraz)</Radio>
-                                                        <Radio value="2">2 (Oldukça)</Radio>
-                                                        <Radio value="3">3 (Çok)</Radio>
-                                                    </>
-                                                )}
-                                            </Space>
-                                        </Radio.Group>
-                                    )}
-                                </Form.Item>
-                                <Divider style={{margin:'12px 0'}} />
-                            </div>
-                        ))}
+                {/* 2. KISIM: SORULAR VE CEVAPLAR */}
+                <Form form={form} onFinish={handleSave} disabled={!isEditMode}>
+                    {sessionData.answers.map((q) => {
+                        const hasOptions = q.options && q.options.length > 0;
+                        
+                        // Radyo Butonu (Likert) Tespiti
+                        const currentAnswer = form.getFieldValue(`q_${q.questionId}`);
+                        const isNumericAnswer = ["0","1","2","3"].includes(String(currentAnswer));
+                        
+                        const isLikert = (hasOptions && q.options.some(opt => ["0", "1", "2", "3"].includes(opt.label.trim()))) || (!hasOptions && isNumericAnswer);
 
-                        {isEditMode && (
-                            <div style={{ textAlign: 'right', marginTop: 20 }}>
-                                <Space>
-                                    <Button onClick={() => navigate(`/admin/session/view/${sessionData.sessionId}`)}>Vazgeç</Button>
-                                    <Button type="primary" htmlType="submit" icon={<SaveOutlined />} size="large">
-                                        Değişiklikleri Kaydet
-                                    </Button>
-                                </Space>
+                        // Fallback Seçenekleri
+                        const displayOptions = (isLikert && !hasOptions) 
+                            ? [
+                                { label: "0", value: "0" }, 
+                                { label: "1", value: "1" }, 
+                                { label: "2", value: "2" }, 
+                                { label: "3", value: "3" },
+                                { label: "Cevap Yok", value: "Cevap Yok" }
+                              ] 
+                            : q.options;
+
+                        const isDropdown = hasOptions && !isLikert;
+                        const isText = !isLikert && !isDropdown;
+
+                        return (
+                            <div key={q.questionId} style={styles.questionCard}>
+                                {/* SOL: Soru Metni */}
+                                <div style={styles.questionText}>
+                                    {q.questionTitle}
+                                </div>
+
+                                {/* SAĞ: Cevap Alanı */}
+                                <div style={styles.answerContainer}>
+                                    <Form.Item name={`q_${q.questionId}`} style={{ marginBottom: 0, width: '100%' }}>
+                                        
+                                        {isLikert && (
+                                            <Radio.Group>
+                                                <Space>
+                                                    {displayOptions.map((opt: any) => (
+                                                        <Radio key={opt.value} value={opt.value}>
+                                                            {opt.label}
+                                                        </Radio>
+                                                    ))}
+                                                </Space>
+                                            </Radio.Group>
+                                        )}
+
+                                        {isDropdown && (
+                                            <Select style={{ width: '100%' }} placeholder="Seçiniz">
+                                                {q.options.map(opt => (
+                                                    <Option key={opt.value} value={opt.value}>
+                                                        {opt.label}
+                                                    </Option>
+                                                ))}
+                                            </Select>
+                                        )}
+
+                                        {isText && (
+                                            <Input.TextArea 
+                                                rows={1} 
+                                                style={{ width: '100%', resize: 'none' }} 
+                                                autoSize={{ minRows: 1, maxRows: 4 }}
+                                                placeholder="Cevap giriniz..."
+                                            />
+                                        )}
+                                        
+                                    </Form.Item>
+                                </div>
                             </div>
-                        )}
-                    </Form>
-                </Card>
+                        );
+                    })}
+
+                    {isEditMode && (
+                        <div style={{ textAlign: 'right', marginTop: 20, marginBottom: 50 }}>
+                            <Button type="primary" htmlType="submit" icon={<SaveOutlined />} size="large">
+                                Değişiklikleri Kaydet
+                            </Button>
+                        </div>
+                    )}
+                </Form>
                 
                 <AppointmentModal 
                     visible={isAppointmentModalOpen}
@@ -394,7 +512,6 @@ const SessionDetailPage = () => {
                     sessionId={sessionData.sessionId}
                     studentName={sessionData.studentName}
                 />
-
             </Content>
         </Layout>
     );

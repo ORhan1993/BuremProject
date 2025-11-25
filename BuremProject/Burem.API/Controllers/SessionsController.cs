@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Burem.Data.Models;
+using Burem.API.Abstract;
 using Burem.API.DTOs;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Burem.API.Controllers
 {
@@ -9,78 +10,40 @@ namespace Burem.API.Controllers
     [ApiController]
     public class SessionsController : ControllerBase
     {
-        private readonly BuremDbContext _context;
+        private readonly ISessionService _sessionService;
 
-        public SessionsController(BuremDbContext context)
+        // Dependency Injection: Sadece Session servisini istiyoruz
+        public SessionsController(ISessionService sessionService)
         {
-            _context = context;
+            _sessionService = sessionService;
         }
 
+        // GET: api/Sessions/13170
         [HttpGet("{id}")]
         public async Task<IActionResult> GetSessionDetail(int id)
         {
-            // 1. Session'ı çek
-            var session = await _context.Sessions
-                                        .Include(s => s.Student)
-                                        .Include(s => s.Advisor)
-                                        .FirstOrDefaultAsync(s => s.Id == id);
+            var result = await _sessionService.GetSessionDetailAsync(id);
 
-            if (session == null) return NotFound("Başvuru bulunamadı.");
-
-            // 2. Cevapları çek
-            var answers = await _context.Answers.Where(a => a.SessionId == id).ToListAsync();
-
-            // 3. Soruları çek (Cevaplanan soruların başlıklarını almak için)
-            var questionIds = answers.Select(a => a.QuestionId).Distinct().ToList();
-            var questions = await _context.Questions
-                                          .Where(q => questionIds.Contains(q.Id))
-                                          .Include(q => q.Options)
-                                          .ToListAsync();
-
-            // 4. DTO Oluştur
-            var dto = new SessionDetailDto
+            if (result == null)
             {
-                SessionId = session.Id,
-                StudentName = $"{session.Student.FirstName} {session.Student.LastName}",
-                SessionDate = session.SessionDate.ToString("dd.MM.yyyy"),
-                AdvisorName = session.Advisor != null ? $"{session.Advisor.FirstName} {session.Advisor.LastName}" : "Atanmamış",
-                Answers = new List<SessionAnswerDto>()
-            };
-
-            foreach (var ans in answers)
-            {
-                var q = questions.FirstOrDefault(x => x.Id == ans.QuestionId);
-                if (q == null) continue;
-
-                // Şık Listesi (Radio/Checkbox ise)
-                var optionsList = q.Options.OrderBy(o => o.SortOrder).Select(o => o.OptionValue).ToList();
-
-                dto.Answers.Add(new SessionAnswerDto
-                {
-                    QuestionId = q.Id,
-                    QuestionTitle = q.QuestionTitle,
-                    QuestionType = q.QuestionType,
-                    AnswerValue = ans.OptionValue,
-                    Options = optionsList
-                });
+                return NotFound(new { message = "Başvuru bulunamadı." });
             }
 
-            return Ok(dto);
+            return Ok(result);
         }
 
+        // PUT: api/Sessions/13170
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateSession(int id, [FromBody] List<UpdateSessionAnswersDto> updatedAnswers)
         {
-            var session = await _context.Sessions.FindAsync(id);
-            if (session == null) return NotFound();
+            var success = await _sessionService.UpdateSessionAnswersAsync(id, updatedAnswers);
 
-            foreach (var item in updatedAnswers)
+            if (!success)
             {
-                var ans = await _context.Answers.FirstOrDefaultAsync(a => a.SessionId == id && a.QuestionId == item.QuestionId);
-                if (ans != null) ans.OptionValue = item.Value;
+                return NotFound(new { message = "Başvuru bulunamadı veya güncellenemedi." });
             }
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Güncellendi" });
+
+            return Ok(new { message = "Başvuru başarıyla güncellendi." });
         }
     }
 }

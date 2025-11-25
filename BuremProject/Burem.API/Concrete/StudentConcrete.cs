@@ -200,5 +200,33 @@ namespace Burem.API.Concrete
 
             return mappedList;
         }
+
+        // StudentConcrete sınıfının içine ekle:
+
+        public async Task<object> GetSessionDetailAsync(int sessionId)
+        {
+            // Seansı ve bağlı olduğu öğrenciyi çekiyoruz
+            var session = await _context.Sessions
+                .Include(s => s.Student) // Öğrenci adını göstermek istersen diye
+                .FirstOrDefaultAsync(x => x.Id == sessionId);
+
+            if (session == null) return null;
+
+            // Burada detay sayfasında göstermek istediğin tüm verileri map'le
+            return new
+            {
+                id = session.Id,
+                studentId = session.StudentId,
+                studentName = session.Student != null ? $"{session.Student.FirstName} {session.Student.LastName}" : "",
+                sessionDate = session.SessionDate.ToString("dd.MM.yyyy"),
+                advisorId = session.AdvisorId,
+                isArchived = session.IsArchived ?? false,
+
+                // Eğer veritabanında varsa şu alanları da ekleyebilirsin:
+                // notes = session.Notes, 
+                // type = session.Type,
+                // status = session.Status
+            };
+        }
     }
 }

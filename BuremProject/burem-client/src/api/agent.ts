@@ -31,7 +31,12 @@ export interface SessionAnswer {
     questionTitle: string;
     answerValue: string;
     questionType: number;
-    options: string[];
+    options: SessionOption[];
+}
+
+export interface SessionOption {
+    label: string;
+    value: string;
 }
 
 export interface SessionDetailDTO {
