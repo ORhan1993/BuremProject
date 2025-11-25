@@ -10,16 +10,20 @@ namespace Burem.API.Controllers
     public class StudentsController : ControllerBase
     {
         private readonly IStudentService _studentService;
+        private readonly ISecurityService _securityService;
 
-        public StudentsController(IStudentService studentService)
+        public StudentsController(IStudentService studentService, ISecurityService securityService)
         {
             _studentService = studentService;
+            _securityService = securityService;
         }
 
         // GET: api/Students/5
         [HttpGet("{id}")]
         public async Task<IActionResult> GetStudentById(int id)
         {
+            // Loglama yaparken:
+            _securityService.AddLog($"Öðrenci detayý görüntülendi. ID: {id}");
             var result = await _studentService.GetStudentProfileAsync(id);
             if (result == null)
             {

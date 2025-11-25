@@ -82,33 +82,37 @@ namespace Burem.API.Helpers
 
         private void SendMail(string toEmail, string subject, string body)
         {
-            try
+            // Ayarları appsettings.json dosyasından okuyoruz
+            var host = _configuration["MailSettings:Host"];
+            var port = int.Parse(_configuration["MailSettings:Port"]);
+            var mailFrom = _configuration["MailSettings:MailFrom"];
+            var displayName = _configuration["MailSettings:DisplayName"];
+            var username = _configuration["MailSettings:Username"];
+            var password = _configuration["MailSettings:Password"];
+
+            // SMTP İstemcisini Yapılandır
+            var smtpClient = new SmtpClient(host)
             {
-                // SMTP Ayarları (Gerçek sunucu ayarlarınızı buraya veya appsettings.json'a girin)
-                var smtpClient = new SmtpClient("smtp.bogazici.edu.tr")
-                {
-                    Port = 587,
-                    Credentials = new NetworkCredential("burem@bogazici.edu.tr", "SIFRE_BURAYA"),
-                    EnableSsl = true,
-                };
+                Port = port,
+                EnableSsl = true,
+                DeliveryMethod = SmtpDeliveryMethod.Network,
+                // DİKKAT: Bu sıralama çok önemlidir!
+                // Önce UseDefaultCredentials false yapılmalı, SONRA Credentials atanmalı.
+                UseDefaultCredentials = false,
+                Credentials = new NetworkCredential(username, password)
+            };
 
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress("burem@bogazici.edu.tr", "BÜREM"),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true,
-                };
-
-                mailMessage.To.Add(toEmail);
-
-                smtpClient.Send(mailMessage);
-            }
-            catch (Exception ex)
+            var mailMessage = new MailMessage
             {
-                Console.WriteLine("Mail Hatası: " + ex.Message);
-                // Log mekanizmasına yazılabilir
-            }
+                From = new MailAddress(mailFrom, displayName),
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = true,
+            };
+
+            mailMessage.To.Add(toEmail);
+
+            smtpClient.Send(mailMessage);
         }
     }
 }

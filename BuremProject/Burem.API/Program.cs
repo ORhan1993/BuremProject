@@ -1,6 +1,6 @@
 using Burem.API.Abstract;
 using Burem.API.Concrete;
-using Burem.Data.Models; // Burasý Data projesindeki namespace ile ayný olmalý
+using Burem.Data.Models; 
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +19,13 @@ builder.Services.AddCors(options =>
 
 // --- SERVÝSLERÝN EKLENDÝÐÝ BÖLÜM ---
 
+// 1. HttpContext Eriþimi Ýçin Gerekli (ESKÝ HttpContext.Current YERÝNE)
+builder.Services.AddHttpContextAccessor();
+
+// 2. Session Desteði (Eðer Session kullanmaya devam edecekseniz)
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession();
+
 builder.Services.AddControllers();
 
 // Swagger / OpenAPI ayarlarý (API test ekraný için)
@@ -34,6 +41,7 @@ builder.Services.AddDbContext<BuremDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddScoped<IStudentService, StudentConcrete>();
 builder.Services.AddScoped<ISessionService, SessionConcrete>();
+builder.Services.AddScoped<ISecurityService, SecurityConcrete>();
 
 var app = builder.Build();
 
@@ -45,6 +53,8 @@ app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
 app.UseCors("AllowReactApp");
+
+app.UseSession();
 
 app.UseAuthorization();
 

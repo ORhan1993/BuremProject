@@ -1,5 +1,6 @@
 ﻿using Burem.API.Abstract;
 using Burem.API.DTOs;
+using Burem.API.Helpers;
 using Burem.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
@@ -25,12 +26,18 @@ namespace Burem.API.Concrete
                                         .FirstOrDefaultAsync(s => s.Id == sessionId);
             if (session == null) return null;
 
-            // 2. Danışman Adı
+            // 2. Danışman Adı (Şifre Çözme Eklenmiş Hali)
             string advisorName = "Atanmamış";
             if (session.AdvisorId > 0)
             {
                 var advisor = await _context.Users.FindAsync(session.AdvisorId);
-                advisorName = advisor != null ? $"{advisor.FirstName} {advisor.LastName}" : "Bilinmeyen";
+                if (advisor != null)
+                {
+                    // Şifreli isimleri çözüyoruz
+                    string fName = CryptoHelper.Decrypt(advisor.FirstName);
+                    string lName = CryptoHelper.Decrypt(advisor.LastName);
+                    advisorName = $"{fName} {lName}";
+                }
             }
 
             // 3. Cevaplar

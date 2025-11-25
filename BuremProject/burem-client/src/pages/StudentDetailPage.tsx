@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Card, Descriptions, Table, Tag, Button, Spin, Row, Col, Divider, Space, message, Tooltip } from 'antd';
+import { Layout, Card, Descriptions, Table, Tag, Button, Spin, Row, Col, Space, message, Tooltip } from 'antd';
 import { 
     ArrowLeftOutlined, UserOutlined, BookOutlined, PhoneOutlined, TeamOutlined, 
     EditOutlined, FileTextOutlined, FileDoneOutlined, DownloadOutlined, LockOutlined 
@@ -11,7 +11,7 @@ import type { StudentProfileDetail, StudentSession } from '../api/agent';
 const { Header, Content } = Layout;
 
 const StudentDetailPage = () => {
-    const { id } = useParams(); // URL'den gelen öğrenci ID'si
+    const { id } = useParams();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [student, setStudent] = useState<StudentProfileDetail | null>(null);
@@ -25,7 +25,6 @@ const StudentDetailPage = () => {
     const loadStudent = async (studentId: string | number) => {
         try {
             setLoading(true);
-            // Backend'den öğrenci verisini çek (ID dönüşümleri backend'de yapılmış olarak gelir)
             const data = await agent.Students.getById(studentId);
             setStudent(data);
         } catch (error) {
@@ -36,17 +35,12 @@ const StudentDetailPage = () => {
         }
     };
 
-    // --- EXCEL İNDİRME İŞLEMİ ---
     const handleDownloadExcel = async (sessionId: number) => {
         if (!student) return;
         try {
             message.loading("Excel dosyası hazırlanıyor...", 1);
-            // Backend'deki Export metodunu çağırır. 
-            // Not: Tek bir başvuru için indiriyorsanız backend'e uygun parametre gönderilmeli.
-            // Şimdilik tüm öğrenci verisini indiren genel metodu çağırıyoruz (Örnek).
             const response = await agent.Export.toExcel({ studentNo: student.studentNo });
             
-            // Blob'dan dosya oluşturup indirt
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -59,7 +53,6 @@ const StudentDetailPage = () => {
         }
     };
 
-    // --- BAŞVURU LİSTESİ TABLO KOLONLARI ---
     const sessionColumns = [
         { title: 'Başvuru No', dataIndex: 'id', key: 'id', width: 100 },
         { title: 'Tarih', dataIndex: 'sessionDate', key: 'sessionDate', width: 120 },
@@ -76,7 +69,6 @@ const StudentDetailPage = () => {
             key: 'actions',
             render: (_: any, r: StudentSession) => (
                 <Space wrap>
-                    {/* 1. GÖRÜNTÜLE BUTONU */}
                     <Tooltip title="Başvuru formunu görüntüle">
                         <Button 
                             type="primary" 
@@ -88,7 +80,6 @@ const StudentDetailPage = () => {
                         </Button>
                     </Tooltip>
 
-                    {/* 2. DÜZENLE BUTONU (Sadece Arşivli Değilse) */}
                     {!r.isArchived && (
                         <Tooltip title="Başvuru formunu düzenle">
                             <Button 
@@ -102,7 +93,6 @@ const StudentDetailPage = () => {
                         </Tooltip>
                     )}
 
-                    {/* 3. DEĞERLENDİRME FORMU BUTONU */}
                     {r.hasFeedback ? (
                         <Tooltip title="Değerlendirme formunu görüntüle">
                             <Button 
@@ -120,7 +110,6 @@ const StudentDetailPage = () => {
                          </Tooltip>
                     )}
 
-                    {/* 4. EXCEL BUTONU */}
                     <Tooltip title="Bu başvuruyu Excel olarak indir">
                         <Button 
                             size="small" 
@@ -160,11 +149,11 @@ const StudentDetailPage = () => {
                         <Card 
                             title={<><UserOutlined /> Kimlik & İletişim Bilgileri</>}
                             extra={<Button size="small" icon={<EditOutlined />}>Profil Düzenle</Button>}
-                            bordered={false} 
+                            variant="borderless" 
                             style={{ borderRadius: 8, height: '100%' }}
-                            headStyle={{ borderBottom: '1px solid #f0f0f0', color: '#003366', fontWeight: 'bold' }}
+                            styles={{ header: { borderBottom: '1px solid #f0f0f0', color: '#003366', fontWeight: 'bold' } }}
                         >
-                            <Descriptions column={1} bordered size="small" labelStyle={{fontWeight:'bold', width:'140px'}}>
+                            <Descriptions column={1} bordered size="small" styles={{ label: {fontWeight:'bold', width:'140px'} }}>
                                 <Descriptions.Item label="Öğrenci No">{student.studentNo}</Descriptions.Item>
                                 <Descriptions.Item label="Ad Soyad">{student.firstName} {student.lastName}</Descriptions.Item>
                                 <Descriptions.Item label="Cinsiyet">{student.gender}</Descriptions.Item>
@@ -177,7 +166,7 @@ const StudentDetailPage = () => {
                             <div style={{ marginTop: 20, marginBottom: 10, fontWeight: 'bold', color: '#003366', borderBottom: '1px solid #eee', paddingBottom: 5 }}>
                                 <PhoneOutlined /> İLETİŞİM KURULACAK KİŞİ
                             </div>
-                            <Descriptions column={1} bordered size="small" labelStyle={{fontWeight:'bold', width:'140px'}}>
+                            <Descriptions column={1} bordered size="small" styles={{ label: {fontWeight:'bold', width:'140px'} }}>
                                 <Descriptions.Item label="Yakınlık">{student.contactDegree}</Descriptions.Item>
                                 <Descriptions.Item label="Adı">{student.contactPerson}</Descriptions.Item>
                                 <Descriptions.Item label="Telefon">{student.contactPhone}</Descriptions.Item>
@@ -186,7 +175,7 @@ const StudentDetailPage = () => {
                             <div style={{ marginTop: 20, marginBottom: 10, fontWeight: 'bold', color: '#003366', borderBottom: '1px solid #eee', paddingBottom: 5 }}>
                                 <TeamOutlined /> AİLE BİLGİLERİ
                             </div>
-                            <Descriptions column={1} bordered size="small" labelStyle={{fontWeight:'bold', width:'140px'}}>
+                            <Descriptions column={1} bordered size="small" styles={{ label: {fontWeight:'bold', width:'140px'} }}>
                                 <Descriptions.Item label="Anne Durumu">{student.isMotherAlive}</Descriptions.Item>
                                 <Descriptions.Item label="Baba Durumu">{student.isFatherAlive}</Descriptions.Item>
                                 <Descriptions.Item label="Birliktelik">{student.parentMarriage}</Descriptions.Item>
@@ -199,11 +188,11 @@ const StudentDetailPage = () => {
                         {/* Akademik Bilgiler */}
                         <Card 
                             title={<><BookOutlined /> Akademik Bilgiler</>} 
-                            bordered={false} 
+                            variant="borderless" 
                             style={{ borderRadius: 8, marginBottom: 24 }}
-                            headStyle={{ borderBottom: '1px solid #f0f0f0', color: '#003366', fontWeight: 'bold' }}
+                            styles={{ header: { borderBottom: '1px solid #f0f0f0', color: '#003366', fontWeight: 'bold' } }}
                         >
-                             <Descriptions column={1} bordered size="small" labelStyle={{fontWeight:'bold', width:'140px'}}>
+                             <Descriptions column={1} bordered size="small" styles={{ label: {fontWeight:'bold', width:'140px'} }}>
                                 <Descriptions.Item label="Fakülte">{student.faculty}</Descriptions.Item>
                                 <Descriptions.Item label="Bölüm">{student.department}</Descriptions.Item>
                                 <Descriptions.Item label="Dönem">{student.semester}</Descriptions.Item>
@@ -216,9 +205,9 @@ const StudentDetailPage = () => {
                         <Card 
                             title="Geçmiş Başvurular / Seanslar" 
                             extra={<Button type="primary" size="small" icon={<FileTextOutlined />}>Yeni Başvuru Ekle</Button>}
-                            bordered={false} 
+                            variant="borderless" 
                             style={{ borderRadius: 8 }}
-                            headStyle={{ borderBottom: '1px solid #f0f0f0', color: '#003366', fontWeight: 'bold' }}
+                            styles={{ header: { borderBottom: '1px solid #f0f0f0', color: '#003366', fontWeight: 'bold' } }}
                         >
                             <Table 
                                 dataSource={student.sessions} 

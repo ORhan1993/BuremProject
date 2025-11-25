@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Layout, Input, Button, Card, Row, Col, Table, message, Collapse, Form, Select, DatePicker, InputNumber, Space, Typography } from 'antd';
+import { Layout, Input, Button, Card, Row, Col, Table, message, Collapse, Form, Select, DatePicker, InputNumber, Space } from 'antd';
 import { SearchOutlined, LogoutOutlined, ArrowLeftOutlined, ClearOutlined, FilterOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import agent from '../api/agent';
 import type { StudentProfileDetail } from '../api/agent';
 
 const { Header, Content } = Layout;
-const { Panel } = Collapse;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
@@ -16,30 +15,24 @@ const StudentSearchPage = () => {
     const [results, setResults] = useState<StudentProfileDetail[]>([]);
     const [form] = Form.useForm();
 
-    // --- ÇIKIŞ FONKSİYONU ---
     const handleLogout = () => {
         localStorage.removeItem('user');
         navigate('/');
     };
 
-    // --- ARAMA FONKSİYONU ---
     const handleSearch = async (values: any) => {
         setLoading(true);
         try {
-            // Ant Design DatePicker'dan gelen objeleri String'e (dd.MM.yyyy) çeviriyoruz
-            // Backend bu formatta bekliyor.
             const formattedValues = {
                 ...values,
                 sessionDateStart: values.sessionDateRange ? values.sessionDateRange[0].format('DD.MM.YYYY') : '',
                 sessionDateFinish: values.sessionDateRange ? values.sessionDateRange[1].format('DD.MM.YYYY') : '',
                 birthDateStart: values.birthDateRange ? values.birthDateRange[0].format('DD.MM.YYYY') : '',
                 birthDateFinish: values.birthDateRange ? values.birthDateRange[1].format('DD.MM.YYYY') : '',
-                // Ham date objelerini temizle, string hallerini yukarıda ekledik
                 sessionDateRange: undefined,
                 birthDateRange: undefined
             };
 
-            // API isteği
             const data = await agent.Students.searchAdvanced(formattedValues);
             setResults(data || []);
             
@@ -57,13 +50,11 @@ const StudentSearchPage = () => {
         }
     };
 
-    // --- TEMİZLEME FONKSİYONU ---
     const handleReset = () => {
         form.resetFields();
         setResults([]);
     };
 
-    // --- TABLO KOLONLARI ---
     const columns = [
         { 
             title: 'Öğrenci No', 
@@ -86,7 +77,6 @@ const StudentSearchPage = () => {
                 <Button 
                     type="primary" 
                     size="small" 
-                    // Tıklandığında detay sayfasına yönlendir
                     onClick={() => navigate(`/admin/student/${record.id}`)} 
                 >
                     Detay
@@ -95,12 +85,55 @@ const StudentSearchPage = () => {
         }
     ];
 
+    // Collapse Items Tanımlaması (Antd v5)
+    const collapseItems = [
+        {
+            key: '1',
+            label: <span style={{fontWeight:600, color:'#003366'}}><FilterOutlined /> Gelişmiş Arama Kriterleri</span>,
+            children: (
+                <Form form={form} onFinish={handleSearch} layout="vertical">
+                    {/* Satır 1: Temel Bilgiler */}
+                    <Row gutter={16}>
+                        <Col xs={24} md={6}><Form.Item name="studentNo" label="Öğrenci No"><Input placeholder="Örn: 2020..." /></Form.Item></Col>
+                        <Col xs={24} md={6}><Form.Item name="firstName" label="Ad"><Input /></Form.Item></Col>
+                        <Col xs={24} md={6}><Form.Item name="lastName" label="Soyad"><Input /></Form.Item></Col>
+                        <Col xs={24} md={6}><Form.Item name="gender" label="Cinsiyet"><Select allowClear><Option value="1">Erkek</Option><Option value="2">Kadın</Option></Select></Form.Item></Col>
+                    </Row>
+
+                    {/* Satır 2: Akademik */}
+                    <Row gutter={16}>
+                        <Col xs={24} md={8}><Form.Item name="faculty" label="Fakülte"><Input placeholder="Fakülte Adı" /></Form.Item></Col>
+                        <Col xs={24} md={8}><Form.Item name="department" label="Bölüm"><Input placeholder="Bölüm Adı" /></Form.Item></Col>
+                        <Col xs={24} md={8}><Form.Item name="academicLevel" label="Akademik Düzey"><Select allowClear><Option value="LISANS">Lisans</Option><Option value="YUKSEK">Yüksek Lisans</Option><Option value="DOKTORA">Doktora</Option><Option value="HAZIRLIK">Hazırlık</Option></Select></Form.Item></Col>
+                    </Row>
+
+                    {/* Satır 3: Detaylar ve Tarihler */}
+                    <Row gutter={16}>
+                        <Col xs={24} md={6}><Form.Item name="sessionDateRange" label="Başvuru Tarihi Aralığı"><RangePicker format="DD.MM.YYYY" style={{width:'100%'}} /></Form.Item></Col>
+                        <Col xs={24} md={6}><Form.Item name="gpaStart" label="Min. Not Ort. (GPA)"><InputNumber style={{width:'100%'}} step="0.01" min={0} max={4} /></Form.Item></Col>
+                        <Col xs={24} md={6}><Form.Item name="olcekTipi" label="Ölçek Tipi"><Select allowClear><Option value="1">Genel</Option><Option value="2">Kaygı</Option><Option value="3">Depresyon</Option></Select></Form.Item></Col>
+                        <Col xs={24} md={6}><Form.Item name="semesterMin" label="Min. Dönem"><InputNumber style={{width:'100%'}} min={1} /></Form.Item></Col>
+                    </Row>
+                    
+                    {/* Butonlar */}
+                    <Row justify="end" style={{ marginTop: 10 }}>
+                        <Space>
+                            <Button icon={<ClearOutlined />} onClick={handleReset}>Temizle</Button>
+                            <Button type="primary" icon={<SearchOutlined />} htmlType="submit" loading={loading}>Ara</Button>
+                        </Space>
+                    </Row>
+                </Form>
+            ),
+            style: { background: '#fff', borderRadius: 8 }
+        }
+    ];
+
     return (
         <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
             
             {/* HEADER */}
             <Header style={{ background: '#003366', padding: '0 24px', display:'flex', justifyContent:'space-between', alignItems:'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:15 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap:15 }}>
                     <span style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>BÜREM</span>
                     <span style={{ color: 'rgba(255,255,255,0.5)' }}>|</span>
                     <span style={{ color: 'white', fontSize: 14 }}>Öğrenci Arama & Filtreleme</span>
@@ -114,50 +147,17 @@ const StudentSearchPage = () => {
             <Content style={{ padding: '24px', maxWidth: 1400, margin: '0 auto', width: '100%' }}>
                 
                 {/* 1. ARAMA FORMU (Accordion içinde) */}
-                <Collapse defaultActiveKey={['1']} style={{ marginBottom: 20, borderRadius: 8, border: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                    <Panel header={<span style={{fontWeight:600, color:'#003366'}}><FilterOutlined /> Gelişmiş Arama Kriterleri</span>} key="1" style={{ background: '#fff', borderRadius: 8 }}>
-                        <Form form={form} onFinish={handleSearch} layout="vertical">
-                            
-                            {/* Satır 1: Temel Bilgiler */}
-                            <Row gutter={16}>
-                                <Col xs={24} md={6}><Form.Item name="studentNo" label="Öğrenci No"><Input placeholder="Örn: 2020..." /></Form.Item></Col>
-                                <Col xs={24} md={6}><Form.Item name="firstName" label="Ad"><Input /></Form.Item></Col>
-                                <Col xs={24} md={6}><Form.Item name="lastName" label="Soyad"><Input /></Form.Item></Col>
-                                <Col xs={24} md={6}><Form.Item name="gender" label="Cinsiyet"><Select allowClear><Option value="1">Erkek</Option><Option value="2">Kadın</Option></Select></Form.Item></Col>
-                            </Row>
-
-                            {/* Satır 2: Akademik */}
-                            <Row gutter={16}>
-                                <Col xs={24} md={8}><Form.Item name="faculty" label="Fakülte"><Input placeholder="Fakülte Adı" /></Form.Item></Col>
-                                <Col xs={24} md={8}><Form.Item name="department" label="Bölüm"><Input placeholder="Bölüm Adı" /></Form.Item></Col>
-                                <Col xs={24} md={8}><Form.Item name="academicLevel" label="Akademik Düzey"><Select allowClear><Option value="LISANS">Lisans</Option><Option value="YUKSEK">Yüksek Lisans</Option><Option value="DOKTORA">Doktora</Option><Option value="HAZIRLIK">Hazırlık</Option></Select></Form.Item></Col>
-                            </Row>
-
-                            {/* Satır 3: Detaylar ve Tarihler */}
-                            <Row gutter={16}>
-                                <Col xs={24} md={6}><Form.Item name="sessionDateRange" label="Başvuru Tarihi Aralığı"><RangePicker format="DD.MM.YYYY" style={{width:'100%'}} /></Form.Item></Col>
-                                <Col xs={24} md={6}><Form.Item name="gpaStart" label="Min. Not Ort. (GPA)"><InputNumber style={{width:'100%'}} step="0.01" min={0} max={4} /></Form.Item></Col>
-                                <Col xs={24} md={6}><Form.Item name="olcekTipi" label="Ölçek Tipi"><Select allowClear><Option value="1">Genel</Option><Option value="2">Kaygı</Option><Option value="3">Depresyon</Option></Select></Form.Item></Col>
-                                <Col xs={24} md={6}><Form.Item name="semesterMin" label="Min. Dönem"><InputNumber style={{width:'100%'}} min={1} /></Form.Item></Col>
-                            </Row>
-                            
-                            {/* Butonlar */}
-                            <Row justify="end" style={{ marginTop: 10 }}>
-                                <Space>
-                                    <Button icon={<ClearOutlined />} onClick={handleReset}>Temizle</Button>
-                                    <Button type="primary" icon={<SearchOutlined />} htmlType="submit" loading={loading}>Ara</Button>
-                                </Space>
-                            </Row>
-
-                        </Form>
-                    </Panel>
-                </Collapse>
+                <Collapse 
+                    defaultActiveKey={['1']} 
+                    style={{ marginBottom: 20, borderRadius: 8, border: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                    items={collapseItems}
+                />
 
                 {/* 2. SONUÇ TABLOSU */}
                 <Card 
                     title={`Arama Sonuçları (${results.length} Kayıt)`} 
                     style={{ borderRadius: 8, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
-                    bodyStyle={{ padding: 0 }}
+                    styles={{ body: { padding: 0 } }}
                 >
                     <Table 
                         dataSource={results} 
