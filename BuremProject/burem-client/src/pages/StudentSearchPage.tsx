@@ -1,49 +1,36 @@
 import { useState } from 'react';
-import { Layout, Input, Button, Card, Row, Col, Table, message, Collapse, Form, Select, DatePicker, InputNumber, Space } from 'antd';
-import { SearchOutlined, LogoutOutlined, ArrowLeftOutlined, ClearOutlined, FilterOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Table, Card, Row, Col, DatePicker, Select, Tag, Tooltip, InputNumber } from 'antd';
+import { SearchOutlined, UserOutlined, EyeOutlined, ClearOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import agent from '../api/agent';
-import type { StudentProfileDetail } from '../api/agent';
 
-const { Header, Content } = Layout;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
+
+// Boğaziçi Mavisi
+const PRIMARY_COLOR = '#1B5583';
 
 const StudentSearchPage = () => {
+    const [form] = Form.useForm();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [results, setResults] = useState<StudentProfileDetail[]>([]);
-    const [form] = Form.useForm();
+    const [students, setStudents] = useState<any[]>([]);
 
-    const handleLogout = () => {
-        localStorage.removeItem('user');
-        navigate('/');
-    };
-
-    const handleSearch = async (values: any) => {
+    const onFinish = async (values: any) => {
         setLoading(true);
         try {
+            // İkinci koddaki mantıkla tarih formatlama
             const formattedValues = {
                 ...values,
-                sessionDateStart: values.sessionDateRange ? values.sessionDateRange[0].format('DD.MM.YYYY') : '',
-                sessionDateFinish: values.sessionDateRange ? values.sessionDateRange[1].format('DD.MM.YYYY') : '',
-                birthDateStart: values.birthDateRange ? values.birthDateRange[0].format('DD.MM.YYYY') : '',
-                birthDateFinish: values.birthDateRange ? values.birthDateRange[1].format('DD.MM.YYYY') : '',
-                sessionDateRange: undefined,
-                birthDateRange: undefined
+                sessionDateStart: values.dateRange ? values.dateRange[0].format('DD.MM.YYYY') : '',
+                sessionDateFinish: values.dateRange ? values.dateRange[1].format('DD.MM.YYYY') : '',
+                // dateRange objesini API'ye göndermemek için siliyoruz veya undefined yapıyoruz
+                dateRange: undefined
             };
-
-            const data = await agent.Students.searchAdvanced(formattedValues);
-            setResults(data || []);
             
-            if (data && data.length > 0) {
-                message.success(`${data.length} öğrenci bulundu.`);
-            } else {
-                message.warning("Kriterlere uygun kayıt bulunamadı.");
-            }
-
+            // API çağrısı
+            const result = await agent.Students.searchAdvanced(formattedValues);
+            setStudents(result || []);
         } catch (error) {
-            message.error("Arama sırasında bir hata oluştu.");
             console.error(error);
         } finally {
             setLoading(false);
@@ -52,7 +39,7 @@ const StudentSearchPage = () => {
 
     const handleReset = () => {
         form.resetFields();
-        setResults([]);
+        setStudents([]);
     };
 
     const columns = [
@@ -60,117 +47,162 @@ const StudentSearchPage = () => {
             title: 'Öğrenci No', 
             dataIndex: 'studentNo', 
             key: 'studentNo', 
-            width: 120, 
-            render: (t: string) => <b>{t}</b> 
+            width: 120,
+            render: (text: string) => <span style={{ fontWeight: 600 }}>{text}</span>
         },
         { title: 'Ad', dataIndex: 'firstName', key: 'firstName' },
         { title: 'Soyad', dataIndex: 'lastName', key: 'lastName' },
-        { title: 'Fakülte', dataIndex: 'faculty', key: 'faculty', ellipsis: true },
-        { title: 'Bölüm', dataIndex: 'department', key: 'department', ellipsis: true },
-        { title: 'Akademik Düzey', dataIndex: 'academicLevel', key: 'academicLevel', width: 140 },
+        { title: 'Fakülte', dataIndex: 'faculty', key: 'faculty', responsive: ['md'] as any },
+        { title: 'Bölüm', dataIndex: 'department', key: 'department', responsive: ['lg'] as any },
+        { title: 'Akademik', dataIndex: 'academicLevel', key: 'academicLevel', width: 100, responsive: ['xl'] as any },
         { 
-            title: 'İşlem', 
+            title: 'Durum', 
+            dataIndex: 'sessions', 
+            key: 'sessionCount', 
+            render: (sessions: any[]) => <Tag color={sessions?.length > 0 ? "blue" : "default"}>{sessions?.length || 0} Başvuru</Tag>
+        },
+        {
+            title: 'İşlem',
             key: 'action',
-            width: 100,
+            width: 80,
             align: 'center' as const,
-            render: (_: any, record: StudentProfileDetail) => (
-                <Button 
-                    type="primary" 
-                    size="small" 
-                    onClick={() => navigate(`/admin/student/${record.id}`)} 
-                >
-                    Detay
-                </Button>
+            render: (_: any, record: any) => (
+                <Tooltip title="Profili Görüntüle">
+                    <Button 
+                        type="primary" 
+                        shape="circle" 
+                        icon={<EyeOutlined />} 
+                        style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}
+                        onClick={() => navigate(`/admin/student/${record.id}`)} 
+                    />
+                </Tooltip>
             )
         }
     ];
 
-    // Collapse Items Tanımlaması (Antd v5)
-    const collapseItems = [
-        {
-            key: '1',
-            label: <span style={{fontWeight:600, color:'#003366'}}><FilterOutlined /> Gelişmiş Arama Kriterleri</span>,
-            children: (
-                <Form form={form} onFinish={handleSearch} layout="vertical">
-                    {/* Satır 1: Temel Bilgiler */}
-                    <Row gutter={16}>
-                        <Col xs={24} md={6}><Form.Item name="studentNo" label="Öğrenci No"><Input placeholder="Örn: 2020..." /></Form.Item></Col>
-                        <Col xs={24} md={6}><Form.Item name="firstName" label="Ad"><Input /></Form.Item></Col>
-                        <Col xs={24} md={6}><Form.Item name="lastName" label="Soyad"><Input /></Form.Item></Col>
-                        <Col xs={24} md={6}><Form.Item name="gender" label="Cinsiyet"><Select allowClear><Option value="1">Erkek</Option><Option value="2">Kadın</Option></Select></Form.Item></Col>
+    return (
+        <div>
+            <div style={{ marginBottom: 20 }}>
+                <h2 style={{ color: PRIMARY_COLOR, margin: 0 }}>Öğrenci Arama ve Sorgulama</h2>
+                <span style={{ color: '#666' }}>Tüm kriterlere göre detaylı öğrenci taraması yapabilirsiniz.</span>
+            </div>
+
+            <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', marginBottom: 24 }}>
+                <Form form={form} layout="vertical" onFinish={onFinish}>
+                    {/* 1. SATIR: Temel Kimlik Bilgileri */}
+                    <Row gutter={24}>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="studentNo" label="Öğrenci Numarası">
+                                <Input prefix={<UserOutlined style={{ color: '#bfbfbf' }} />} placeholder="Örn: 2023..." />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="firstName" label="Ad">
+                                <Input placeholder="Ad" />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="lastName" label="Soyad">
+                                <Input placeholder="Soyad" />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="gender" label="Cinsiyet">
+                                <Select allowClear placeholder="Seçiniz">
+                                    <Option value="1">Erkek</Option>
+                                    <Option value="2">Kadın</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
                     </Row>
 
-                    {/* Satır 2: Akademik */}
-                    <Row gutter={16}>
-                        <Col xs={24} md={8}><Form.Item name="faculty" label="Fakülte"><Input placeholder="Fakülte Adı" /></Form.Item></Col>
-                        <Col xs={24} md={8}><Form.Item name="department" label="Bölüm"><Input placeholder="Bölüm Adı" /></Form.Item></Col>
-                        <Col xs={24} md={8}><Form.Item name="academicLevel" label="Akademik Düzey"><Select allowClear><Option value="LISANS">Lisans</Option><Option value="YUKSEK">Yüksek Lisans</Option><Option value="DOKTORA">Doktora</Option><Option value="HAZIRLIK">Hazırlık</Option></Select></Form.Item></Col>
+                    {/* 2. SATIR: Akademik Bilgiler */}
+                    <Row gutter={24}>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="faculty" label="Fakülte">
+                                <Input placeholder="Fakülte Adı" />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="department" label="Bölüm">
+                                <Input placeholder="Bölüm Adı" />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="academicLevel" label="Akademik Düzey">
+                                <Select allowClear placeholder="Seçiniz">
+                                    <Option value="LISANS">Lisans</Option>
+                                    <Option value="YUKSEK">Yüksek Lisans</Option>
+                                    <Option value="DOKTORA">Doktora</Option>
+                                    <Option value="HAZIRLIK">Hazırlık</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="dateRange" label="Başvuru Tarih Aralığı">
+                                <DatePicker.RangePicker format="DD.MM.YYYY" style={{ width: '100%' }} placeholder={['Başlangıç', 'Bitiş']} />
+                            </Form.Item>
+                        </Col>
                     </Row>
 
-                    {/* Satır 3: Detaylar ve Tarihler */}
-                    <Row gutter={16}>
-                        <Col xs={24} md={6}><Form.Item name="sessionDateRange" label="Başvuru Tarihi Aralığı"><RangePicker format="DD.MM.YYYY" style={{width:'100%'}} /></Form.Item></Col>
-                        <Col xs={24} md={6}><Form.Item name="gpaStart" label="Min. Not Ort. (GPA)"><InputNumber style={{width:'100%'}} step="0.01" min={0} max={4} /></Form.Item></Col>
-                        <Col xs={24} md={6}><Form.Item name="olcekTipi" label="Ölçek Tipi"><Select allowClear><Option value="1">Genel</Option><Option value="2">Kaygı</Option><Option value="3">Depresyon</Option></Select></Form.Item></Col>
-                        <Col xs={24} md={6}><Form.Item name="semesterMin" label="Min. Dönem"><InputNumber style={{width:'100%'}} min={1} /></Form.Item></Col>
-                    </Row>
-                    
-                    {/* Butonlar */}
-                    <Row justify="end" style={{ marginTop: 10 }}>
-                        <Space>
-                            <Button icon={<ClearOutlined />} onClick={handleReset}>Temizle</Button>
-                            <Button type="primary" icon={<SearchOutlined />} htmlType="submit" loading={loading}>Ara</Button>
-                        </Space>
+                    {/* 3. SATIR: Detay Filtreler (GPA, Ölçek vb.) */}
+                    <Row gutter={24}>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="gpaStart" label="Min. Not Ort. (GPA)">
+                                <InputNumber style={{ width: '100%' }} step="0.01" min={0} max={4} placeholder="0.00" />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="semesterMin" label="Min. Dönem">
+                                <InputNumber style={{ width: '100%' }} min={1} placeholder="1" />
+                            </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Form.Item name="olcekTipi" label="Ölçek Tipi">
+                                <Select allowClear placeholder="Filtrele">
+                                    <Option value="1">Genel</Option>
+                                    <Option value="2">Kaygı</Option>
+                                    <Option value="3">Depresyon</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        {/* Butonlar için son sütun */}
+                        <Col xs={24} sm={12} md={6} style={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <Form.Item style={{ width: '100%' }}>
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    <Button onClick={handleReset} icon={<ClearOutlined />} style={{ flex: 1 }}>
+                                        Temizle
+                                    </Button>
+                                    <Button 
+                                        type="primary" 
+                                        htmlType="submit" 
+                                        icon={<SearchOutlined />} 
+                                        loading={loading} 
+                                        style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, flex: 1.5 }}
+                                    >
+                                        Ara
+                                    </Button>
+                                </div>
+                            </Form.Item>
+                        </Col>
                     </Row>
                 </Form>
-            ),
-            style: { background: '#fff', borderRadius: 8 }
-        }
-    ];
+            </Card>
 
-    return (
-        <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-            
-            {/* HEADER */}
-            <Header style={{ background: '#003366', padding: '0 24px', display:'flex', justifyContent:'space-between', alignItems:'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap:15 }}>
-                    <span style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>BÜREM</span>
-                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>|</span>
-                    <span style={{ color: 'white', fontSize: 14 }}>Öğrenci Arama & Filtreleme</span>
-                </div>
-                <Space>
-                    <Button type="text" style={{color:'white'}} icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin')}>Panele Dön</Button>
-                    <Button type="text" style={{color:'#ffccc7'}} icon={<LogoutOutlined />} onClick={handleLogout}>Çıkış</Button>
-                </Space>
-            </Header>
-
-            <Content style={{ padding: '24px', maxWidth: 1400, margin: '0 auto', width: '100%' }}>
-                
-                {/* 1. ARAMA FORMU (Accordion içinde) */}
-                <Collapse 
-                    defaultActiveKey={['1']} 
-                    style={{ marginBottom: 20, borderRadius: 8, border: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
-                    items={collapseItems}
-                />
-
-                {/* 2. SONUÇ TABLOSU */}
-                <Card 
-                    title={`Arama Sonuçları (${results.length} Kayıt)`} 
-                    style={{ borderRadius: 8, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
-                    styles={{ body: { padding: 0 } }}
-                >
+            {/* SONUÇ TABLOSU */}
+            {students && students.length > 0 ? (
+                <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
                     <Table 
-                        dataSource={results} 
+                        dataSource={students} 
                         columns={columns} 
                         rowKey="id" 
-                        loading={loading}
-                        pagination={{ pageSize: 10, showSizeChanger: true }} 
-                        locale={{ emptyText: 'Kriterlere uygun veri bulunamadı.' }}
+                        pagination={{ pageSize: 10, showSizeChanger: true }}
                     />
                 </Card>
-
-            </Content>
-        </Layout>
+            ) : (
+                loading ? null : <div style={{ textAlign: 'center', color: '#999', marginTop: 40 }}>Arama yapmak için kriter giriniz veya sonuç bulunamadı.</div>
+            )}
+        </div>
     );
 };
 
