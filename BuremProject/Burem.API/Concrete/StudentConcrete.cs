@@ -1,11 +1,12 @@
 ﻿using Burem.API.Abstract;
 using Burem.API.DTOs;
+using Burem.API.Helpers;
 using Burem.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System;
 
 namespace Burem.API.Concrete
 {
@@ -91,10 +92,12 @@ namespace Burem.API.Concrete
         // 4. IStudentService UYGULAMASI
         // ========================================================================
 
+        /* eski yöntem
         public async Task<object> GetStudentProfileAsync(int id)
         {
             var s = await _context.Students
                 .Include(x => x.Sessions)
+                .ThenInclude(sess => sess.Advisor)
                 .FirstOrDefaultAsync(x => x.Id == id);
 
             if (s == null) return null;
@@ -160,8 +163,98 @@ namespace Burem.API.Concrete
                     id = sess.Id,
                     sessionDate = sess.SessionDate.ToString("dd.MM.yyyy"),
                     advisorId = sess.AdvisorId,
+                    advisorName = sess.Advisor != null
+                        ? $"{CryptoHelper.Decrypt(sess.Advisor.FirstName)} {CryptoHelper.Decrypt(sess.Advisor.LastName)}"
+                        : "Atanmamış",
                     isArchived = sess.IsArchived ?? false,
                     hasFeedback = false // İleride eklenebilir
+                }).OrderByDescending(x => x.id).ToList()
+            };
+        }*/
+        public async Task<object> GetStudentProfileAsync(int id)
+        {
+            // 1. ADIM: Öğrenciyi ve Seanslarını çekiyoruz (Advisor JOIN yapmıyoruz!)
+            // Böylece danışmanı silinmiş seanslar bile kaybolmaz.
+            var s = await _context.Students
+                .Include(x => x.Sessions)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (s == null) return null;
+
+            // 2. ADIM: Listelenen seanslardaki AdvisorId'leri topluyoruz
+            var advisorIds = s.Sessions.Select(x => x.AdvisorId).Distinct().ToList();
+
+            // 3. ADIM: Bu ID'lere ait kullanıcıları veritabanından ayrıca çekiyoruz
+            var advisors = await _context.Users
+                .Where(u => advisorIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.FirstName, u.LastName }) // Sadece gereken alanlar
+                .ToDictionaryAsync(k => k.Id, v => v);
+
+            return new
+            {
+                id = s.Id,
+                studentNo = s.StudentNo,
+                firstName = s.FirstName,
+                lastName = s.LastName,
+                email = s.Email,
+                mobilePhone = s.MobilePhone,
+                birthYear = (s.BirthDate == 99 || s.BirthDate == null) ? "Cevap Yok" : s.BirthDate.ToString(),
+                gender = await GetOptionLabelAsync(s.Gender.ToString(), QID_GENDER),
+                lifestyle = await GetOptionLabelAsync(s.Lifestyle, QID_LIFESTYLE),
+                birthPlace = await GetOptionLabelAsync(s.BirthPlace, QID_BIRTHPLACE),
+                maritalStatus = await GetOptionLabelAsync(s.MaritalStatus, QID_MARITAL_STATUS),
+                highSchool = await GetOptionLabelAsync(s.HighSchool, QID_HIGHSCHOOL),
+                faculty = await GetOptionLabelAsync(s.Faculty, QID_FACULTY),
+                department = await GetOptionLabelAsync(s.Department, QID_DEPARTMENT),
+                semester = s.Semester.ToString(),
+                academicLevel = await GetOptionLabelAsync(s.AcademicLevel, QID_ACADEMIC_LEVEL),
+                preparationLevel = MapStringDictionary(s.PreparationLevel, PreparationMap),
+                isScholar = MapDictionary(s.IsScholar, RadioButtonMap),
+                contactDegree = s.ContactDegree,
+                contactPerson = s.ContactPerson,
+                contactPhone = s.ContactPhone,
+                currentAdress = s.CurrentAdress,
+                isMotherAlive = MapDictionary(s.IsMotherAlive, RadioButtonMap),
+                motherAge = s.MotherAge,
+                motherProfession = await GetOptionLabelAsync(s.MotherProfession, QID_JOB),
+                motherAcademicLevel = await GetOptionLabelAsync(s.MotherAcademicLevel, QID_EDUCATION_LEVEL),
+                isFatherAlive = MapDictionary(s.IsDadAlive, RadioButtonMap),
+                dadAge = s.DadAge,
+                dadProfession = await GetOptionLabelAsync(s.DadProfession, QID_JOB),
+                dadAcademicLevel = await GetOptionLabelAsync(s.DadAcademicLevel, QID_EDUCATION_LEVEL),
+                parentMarriage = MapDictionary(s.ParentMarriage, ParentMarriageMap),
+                brotherSisterTotal = MapDictionary(s.BrotherSisterTotal, RadioButtonMap),
+                brotherAmount = s.BrotherAmount,
+                sisterAmount = s.SisterAmount,
+
+                // --- Başvuru Geçmişi (GÜVENLİ EŞLEŞTİRME) ---
+                sessions = s.Sessions.Select(sess =>
+                {
+                    // Danışman adını sözlükten buluyoruz
+                    string advisorName = "Atanmamış";
+
+                    // Eğer bu ID'ye sahip bir kullanıcı bulunduysa şifresini çözüp yaz
+                    if (advisors.TryGetValue(sess.AdvisorId, out var adv))
+                    {
+                        var fName = CryptoHelper.Decrypt(adv.FirstName);
+                        var lName = CryptoHelper.Decrypt(adv.LastName);
+                        advisorName = $"{fName} {lName}";
+                    }
+                    else
+                    {
+                        // Kullanıcı DB'de bulunamadıysa (Silinmiş vs.)
+                        advisorName = "Bilinmiyor";
+                    }
+
+                    return new
+                    {
+                        id = sess.Id,
+                        sessionDate = sess.SessionDate.ToString("dd.MM.yyyy"),
+                        advisorId = sess.AdvisorId,
+                        advisorName = advisorName, // Artık güvenli
+                        isArchived = sess.IsArchived ?? false,
+                        hasFeedback = false
+                    };
                 }).OrderByDescending(x => x.id).ToList()
             };
         }
@@ -208,9 +301,20 @@ namespace Burem.API.Concrete
             // Seansı ve bağlı olduğu öğrenciyi çekiyoruz
             var session = await _context.Sessions
                 .Include(s => s.Student) // Öğrenci adını göstermek istersen diye
+                .Include(s => s.Advisor)
                 .FirstOrDefaultAsync(x => x.Id == sessionId);
 
             if (session == null) return null;
+
+            // Danışman ismini güvenli bir şekilde oluşturuyoruz
+            string advisorNameDisplay = "Atanmamış";
+            if (session.Advisor != null)
+            {
+                // DEĞİŞİKLİK BURADA: İsim ve Soyismi çözüyoruz
+                var decryptedFirst = CryptoHelper.Decrypt(session.Advisor.FirstName);
+                var decryptedLast = CryptoHelper.Decrypt(session.Advisor.LastName);
+                advisorNameDisplay = $"{decryptedFirst} {decryptedLast}";
+            }
 
             // Burada detay sayfasında göstermek istediğin tüm verileri map'le
             return new
@@ -220,6 +324,7 @@ namespace Burem.API.Concrete
                 studentName = session.Student != null ? $"{session.Student.FirstName} {session.Student.LastName}" : "",
                 sessionDate = session.SessionDate.ToString("dd.MM.yyyy"),
                 advisorId = session.AdvisorId,
+                advisorName = advisorNameDisplay,
                 isArchived = session.IsArchived ?? false,
 
                 // Eğer veritabanında varsa şu alanları da ekleyebilirsin:

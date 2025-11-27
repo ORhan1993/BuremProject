@@ -125,10 +125,7 @@ namespace Burem.API.Concrete
             return new ServiceResultDto { IsSuccess = true, Message = "Randevu oluşturuldu ve bilgilendirme maili gönderildi." };
         }
 
-        Task<ServiceResultDto> IAppointmentService.CreateAppointmentAsync(CreateAppointmentDto dto)
-        {
-            throw new NotImplementedException();
-        }
+       
     }
 
     

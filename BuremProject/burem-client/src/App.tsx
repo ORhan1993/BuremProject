@@ -1,27 +1,25 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import StudentForm from './pages/StudentForm';
+import StudentDashboard from './pages/StudentDashboard';
+import EvaluationForm from './pages/EvaluationForm'; 
 import AdminPanel from './pages/admin/AdminPanel';
-import SecretariesPage from './pages/admin/SecretariesPage'; // Yeni sayfa
+import SecretariesPage from './pages/admin/SecretariesPage';
 import StudentSearchPage from './pages/StudentSearchPage';
 import StudentDetailPage from './pages/StudentDetailPage';
 import SessionDetailPage from './pages/SessionDetailPage';
+import SecretaryDashboard from './pages/SecretaryDashboard';
+import TherapistDashboard from './pages/TherapistDashboard';
 import MainLayout from './layouts/MainLayout';
 
-// Geçici sayfa
-const ComingSoon = ({ title }: { title: string }) => (
-    <div style={{ textAlign: 'center', padding: 50 }}>
-        <h2>{title}</h2>
-        <p>Bu sayfa yapım aşamasındadır.</p>
-    </div>
-);
 
-// --- KORUMALI ROTA ---
+// --- KORUMALI ROTA BİLEŞENİ ---
 const ProtectedRoute = ({ children, allowedRoles }: { children: JSX.Element, allowedRoles: string[] }) => {
     try {
         const userStr = localStorage.getItem('user');
         const user = userStr ? JSON.parse(userStr) : null;
 
+        // Kullanıcı yoksa veya rolü yetersizse Login'e at
         if (!user || !allowedRoles.includes(user.role)) {
             return <Navigate to="/login" replace />;
         }
@@ -32,7 +30,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: JSX.Element, all
     }
 };
 
-// --- ANA YÖNLENDİRİCİ ---
+// --- KÖK DİZİN YÖNLENDİRİCİSİ ---
 const RootRedirect = () => {
     try {
         const userStr = localStorage.getItem('user');
@@ -64,35 +62,45 @@ function App() {
         {/* 3. PANEL İÇERİK ROTALARI (Navbar/Sidebar Dahil) */}
         <Route element={<MainLayout />}>
             
-            {/* ÖĞRENCİ */}
+            {/* ÖĞRENCİ ROTALARI */}
             <Route path="/student" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                    <StudentDashboard />
+                </ProtectedRoute>
+            } />
+            <Route path="/student/basvuru" element={
                 <ProtectedRoute allowedRoles={['student']}>
                     <StudentForm />
                 </ProtectedRoute>
             } />
+              {/* DEĞERLENDİRME FORMU ROTASI GÜNCELLENDİ */}
+            <Route path="/degerlendirme-formu" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                    <EvaluationForm />
+                </ProtectedRoute>
+            } />
 
-            {/* ADMİN */}
+            {/* ADMİN ROTALARI */}
             <Route path="/admin" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                     <AdminPanel />
                 </ProtectedRoute>
             } />
             
-            {/* ÖĞRENCİ ARAMA (Admin ve Sekreter için) */}
-            <Route path="/admin/search" element={
-                <ProtectedRoute allowedRoles={['admin', 'secretary']}>
-                    <StudentSearchPage />
-                </ProtectedRoute>
-            } />
-
-            {/* SEKRETER YÖNETİMİ (Sadece Admin) */}
+            {/* SEKRETER YÖNETİMİ */}
             <Route path="/admin/secretaries" element={
                 <ProtectedRoute allowedRoles={['admin']}>
                     <SecretariesPage />
                 </ProtectedRoute>
             } />
 
-            {/* DETAY SAYFALARI */}
+            {/* ARAMA VE DETAY SAYFALARI */}
+            <Route path="/admin/search" element={
+                <ProtectedRoute allowedRoles={['admin', 'secretary']}>
+                    <StudentSearchPage />
+                </ProtectedRoute>
+            } />
+            
             <Route path="/admin/student/:id" element={
                 <ProtectedRoute allowedRoles={['admin', 'secretary', 'therapist']}>
                     <StudentDetailPage />
@@ -105,16 +113,16 @@ function App() {
                 </ProtectedRoute>
             } />
 
-            {/* DİĞER ROLLER */}
+            {/* TERAPİST VE SEKRETER PANELLERİ */}
             <Route path="/therapist" element={
                 <ProtectedRoute allowedRoles={['therapist']}>
-                    <ComingSoon title="Terapist Paneli" />
+                    <TherapistDashboard />
                 </ProtectedRoute>
             } />
             
             <Route path="/secretary" element={
                 <ProtectedRoute allowedRoles={['secretary']}>
-                    <ComingSoon title="Sekreter Paneli" />
+                    <SecretaryDashboard />
                 </ProtectedRoute>
             } />
         </Route>

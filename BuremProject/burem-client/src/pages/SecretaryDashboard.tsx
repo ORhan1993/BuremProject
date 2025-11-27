@@ -68,9 +68,25 @@ const SecretaryDashboard = () => {
 
     const handleOk = () => {
         form.validateFields().then(values => {
+            // --- ANALİZE UYGUN BACKEND PAYLOAD HAZIRLIĞI ---
+            // Sekreter sadece 1. seansı atayabilir.
+            const payload = {
+                studentId: selectedStudent?.id,
+                advisorId: values.therapist, 
+                sessionDate: values.date.format('YYYY-MM-DD') + 'T' + values.time,
+                isOnline: values.type === 'online',
+                
+                // --- KRİTİK İŞ KURALLARI ---
+                sessionNumber: 1, // Sabit değer: İlk Görüşme
+                status: 'Planlandı'
+            };
+
+            console.log("Backend'e gönderilen 1. Seans Kaydı:", payload);
+            // Simülasyon: API çağrısı burada yapılacak (agent.Appointments.create(payload))
+            
+            // Başarılı kabul edip formu kapatıyoruz
             setIsModalOpen(false);
             form.resetFields();
-            // API call would go here
         });
     };
 
@@ -108,6 +124,7 @@ const SecretaryDashboard = () => {
                                             <div>
                                                 <div style={{fontSize: 12}}>{item.department}</div>
                                                 <div style={{fontSize: 11, color: '#888'}}>Talep: {item.requestDate}</div>
+                                                {/* Aciliyet bilgisi liste görünümünde kalabilir ama detayda gizlenecek */}
                                                 {item.urgency === 'Yüksek' && <Tag color="red" style={{marginTop: 4}}>Acil</Tag>}
                                             </div>
                                         }
@@ -146,27 +163,35 @@ const SecretaryDashboard = () => {
                 </Col>
             </Row>
 
-            {/* RANDEVU OLUŞTURMA MODALI */}
+            {/* RANDEVU OLUŞTURMA MODALI - GÜNCELLENDİ */}
             <Modal
-                title={<span style={{color: PRIMARY_COLOR}}>Randevu Oluştur: {selectedStudent?.name}</span>}
+                title={<span style={{color: PRIMARY_COLOR}}>İlk Görüşme Ataması: {selectedStudent?.name}</span>}
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
                 onOk={handleOk}
-                okText="Oluştur"
+                okText="Atamayı Yap ve Mail Gönder"
                 cancelText="İptal"
                 okButtonProps={{style: {backgroundColor: PRIMARY_COLOR}}}
             >
                 <Form form={form} layout="vertical">
+                    {/* İŞ AKIŞI UYARISI */}
+                    <div style={{background: '#fff1f0', padding: 10, borderRadius: 6, marginBottom: 15, border: '1px solid #ffa39e'}}>
+                        <Text type="danger" strong style={{fontSize: 12}}>⚠️ DİKKAT:</Text>
+                        <Text style={{fontSize: 12, display: 'block', marginTop: 5}}>
+                            Bu işlem öğrenci için sisteme <b>1. Seans</b> kaydını oluşturacak ve öğrenciye otomatik bilgilendirme e-postası gönderecektir.
+                        </Text>
+                    </div>
+
+                    {/* KISITLANMIŞ ÖĞRENCİ BİLGİLERİ (KVKK GEREĞİ ÖLÇEKLER GİZLİ) */}
                     <div style={{background: '#f4f8fc', padding: 10, borderRadius: 6, marginBottom: 15}}>
-                        <Text type="secondary" style={{fontSize: 12}}>Öğrenci Bilgileri (Özet):</Text>
-                        <div>Bölüm: {selectedStudent?.department}</div>
-                        <div>Başvuru Tarihi: {selectedStudent?.requestDate}</div>
-                        <div>Aciliyet: {selectedStudent?.urgency}</div>
+                        <Text type="secondary" style={{fontSize: 12}}>Öğrenci Bilgileri:</Text>
+                        <div><b>Bölüm:</b> {selectedStudent?.department}</div>
+                        <div><b>Başvuru Tarihi:</b> {selectedStudent?.requestDate}</div>
                     </div>
 
                     <Row gutter={16}>
                         <Col span={12}>
-                            <Form.Item name="therapist" label="Terapist Seçimi" rules={[{required:true}]}>
+                            <Form.Item name="therapist" label="Terapist Seçimi" rules={[{required:true, message: 'Lütfen bir terapist seçin'}]}>
                                 <Select placeholder="Seçiniz">
                                     <Option value="ayse">Ayşe Yılmaz (Kuzey)</Option>
                                     <Option value="mehmet">Mehmet Öz (Güney)</Option>
@@ -174,7 +199,7 @@ const SecretaryDashboard = () => {
                             </Form.Item>
                         </Col>
                         <Col span={12}>
-                            <Form.Item name="type" label="Görüşme Tipi" rules={[{required:true}]}>
+                            <Form.Item name="type" label="Görüşme Tipi" rules={[{required:true, message: 'Görüşme tipi seçiniz'}]}>
                                 <Select placeholder="Seçiniz">
                                     <Option value="yuzyuze">Yüz Yüze</Option>
                                     <Option value="online">Online</Option>
@@ -185,23 +210,25 @@ const SecretaryDashboard = () => {
                     
                     <Row gutter={16}>
                         <Col span={12}>
-                            <Form.Item name="date" label="Tarih" rules={[{required:true}]}>
-                                <DatePicker style={{width:'100%'}} />
+                            <Form.Item name="date" label="Tarih" rules={[{required:true, message: 'Tarih seçiniz'}]}>
+                                <DatePicker style={{width:'100%'}} format="DD.MM.YYYY" />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
-                            <Form.Item name="time" label="Saat" rules={[{required:true}]}>
+                            <Form.Item name="time" label="Saat" rules={[{required:true, message: 'Saat seçiniz'}]}>
                                 <Select placeholder="Saat">
                                     <Option value="09:00">09:00</Option>
                                     <Option value="10:00">10:00</Option>
                                     <Option value="11:00">11:00</Option>
                                     <Option value="14:00">14:00</Option>
+                                    <Option value="15:00">15:00</Option>
+                                    <Option value="16:00">16:00</Option>
                                 </Select>
                             </Form.Item>
                         </Col>
                     </Row>
                     <Form.Item name="note" label="Sekreter Notu">
-                        <Input.TextArea rows={2} placeholder="Terapist için özel not..." />
+                        <Input.TextArea rows={2} placeholder="Terapist için özel not (Öğrenci görmez)..." />
                     </Form.Item>
                 </Form>
             </Modal>
