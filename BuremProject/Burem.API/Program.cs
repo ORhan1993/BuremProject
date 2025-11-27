@@ -26,7 +26,11 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // Oluþturduðumuz filtreyi tüm projeye uyguluyoruz
+    options.Filters.Add<Burem.API.Filters.LogActivityFilter>();
+});
 
 // Swagger / OpenAPI ayarlarý (API test ekraný için)
 builder.Services.AddEndpointsApiExplorer();
@@ -42,6 +46,7 @@ builder.Services.AddDbContext<BuremDbContext>(options =>
 builder.Services.AddScoped<IStudentService, StudentConcrete>();
 builder.Services.AddScoped<ISessionService, SessionConcrete>();
 builder.Services.AddScoped<ISecurityService, SecurityConcrete>();
+builder.Services.AddScoped<IAppointmentService, AppointmentConcrete>();
 
 var app = builder.Build();
 
