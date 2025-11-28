@@ -3,7 +3,6 @@ using Burem.Data.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace Burem.API
@@ -15,77 +14,86 @@ namespace Burem.API
             // 1. Veritabanını oluştur (yoksa)
             await context.Database.EnsureCreatedAsync();
 
-            // KONTROL: Eğer veritabanında zaten veri varsa ve temiz bir başlangıç istiyorsan,
-            // aşağıdaki "return" satırını YORUMA AL veya SİL.
-            // Eğer veritabanını silip baştan kurmak istersen Program.cs adımındaki notu oku.
+            // --- KRİTİK ADIM 0: ROLLERİN EKLENMESİ ---
+            // Kullanıcıları eklemeden önce Roller tabloda olmalı, yoksa FK hatası verir.
+            if (!await context.Roles.AnyAsync())
+            {
+                Console.WriteLine("--- Roller Ekleniyor ---");
+                var roles = new List<Role>
+                {
+                    new Role { Id = (int)UserRole.Admin, RoleName = "Admin" },
+                    new Role { Id = (int)UserRole.Sekreter, RoleName = "Sekreter" },
+                    new Role { Id = (int)UserRole.Ogrenci, RoleName = "Öğrenci" },
+                    new Role { Id = (int)UserRole.Terapist, RoleName = "Terapist" }
+                };
+                await context.Roles.AddRangeAsync(roles);
+                await context.SaveChangesAsync();
+            }
+
+            // KONTROL: Eğer veritabanında kullanıcı varsa tekrar ekleme yapma.
             if (await context.Users.AnyAsync())
             {
-                // Veri varsa tekrar ekleme yapmasın diye çıkıyoruz.
-                // Eğer verilerin eksik olduğunu düşünüyorsan bu bloğu silmelisin.
                 return;
             }
 
-            Console.WriteLine("--- Veri Tohumlama Başladı ---");
+            Console.WriteLine("--- Kullanıcı Verileri Tohumlanıyor ---");
 
             var users = new List<User>();
-            var students = new List<Student>();
-            var sessions = new List<Session>();
-            var answers = new List<Answer>();
 
             // --- 1. SİSTEM KULLANICISI (Atanmamış Başvurular İçin) ---
-            // AdvisorId FK hatası almamak için "Atanmamış" durumunu temsil eden bir kullanıcı
-            var unassignedAdvisor = CreateUser("Sistem", "Atanmamış", "system_unassigned", Role.Admin); // Geçici Admin rolü
+            var unassignedAdvisor = CreateUser("Sistem", "Atanmamış", "system_unassigned", UserRole.Admin);
             users.Add(unassignedAdvisor);
 
-            // --- 2. ADMİNLER (2 Adet) ---
-            users.Add(CreateUser("Yazılım", "Admin", "admin1", Role.Admin));
-            users.Add(CreateUser("Bürem", "Yönetici", "admin2", Role.Admin));
+            // --- 2. ADMİNLER ---
+            users.Add(CreateUser("Yazılım", "Admin", "admin1", UserRole.Admin));
+            users.Add(CreateUser("Bürem", "Yönetici", "admin2", UserRole.Admin));
 
-            // --- 3. SEKRETERLER (3 Adet) ---
-            users.Add(CreateUser("Ayşe", "Yılmaz (Sekreter)", "sekreter1", Role.Sekreter));
-            users.Add(CreateUser("Fatma", "Demir (Sekreter)", "sekreter2", Role.Sekreter));
-            users.Add(CreateUser("Mehmet", "Kaya (Sekreter)", "sekreter3", Role.Sekreter));
+            // --- 3. SEKRETERLER ---
+            users.Add(CreateUser("Ayşe", "Yılmaz (Sekreter)", "sekreter1", UserRole.Sekreter));
+            users.Add(CreateUser("Fatma", "Demir (Sekreter)", "sekreter2", UserRole.Sekreter));
+            users.Add(CreateUser("Mehmet", "Kaya (Sekreter)", "sekreter3", UserRole.Sekreter));
 
-            // --- 4. TERAPİSTLER (10 Adet - Gruplara Dağıtılmış) ---
-            // Soyadlarına gruplarını ekledik ki panelde ayırt edilebilsin.
+            // --- 4. TERAPİSTLER ---
             var therapists = new List<User>
             {
-                CreateUser("Dr. Ahmet", "Yıldız (BÜREM Uzmanı)", "terapist1", Role.Terapist),
-                CreateUser("Uzm. Psk. Elif", "Kara (BÜREM Uzmanı)", "terapist2", Role.Terapist),
-                CreateUser("Psk. Can", "Öz (BÜREM Uzmanı)", "terapist3", Role.Terapist),
-                CreateUser("Prof. Dr. Selin", "Aksoy (Deneyimli)", "terapist4", Role.Terapist),
-                CreateUser("Doç. Dr. Murat", "Çelik (Deneyimli)", "terapist5", Role.Terapist),
-                CreateUser("Uzm. Psk. Leyla", "Güneş (Deneyimli)", "terapist6", Role.Terapist),
-                CreateUser("Psk. Zeynep", "Su (Gönüllü)", "terapist7", Role.Terapist),
-                CreateUser("Psk. Kerem", "Dağ (Gönüllü)", "terapist8", Role.Terapist),
-                CreateUser("Psk. Burcu", "Ersoy (İndirimli)", "terapist9", Role.Terapist),
-                CreateUser("Psk. Ozan", "Tekin (İndirimli)", "terapist10", Role.Terapist)
+                CreateUser("Dr. Ahmet", "Yıldız", "terapist1", UserRole.Terapist),
+                CreateUser("Uzm. Psk. Elif", "Kara", "terapist2", UserRole.Terapist),
+                CreateUser("Psk. Can", "Öz", "terapist3", UserRole.Terapist),
+                CreateUser("Prof. Dr. Selin", "Aksoy", "terapist4", UserRole.Terapist),
+                CreateUser("Doç. Dr. Murat", "Çelik", "terapist5", UserRole.Terapist),
+                CreateUser("Uzm. Psk. Leyla", "Güneş", "terapist6", UserRole.Terapist),
+                CreateUser("Psk. Zeynep", "Su", "terapist7", UserRole.Terapist),
+                CreateUser("Psk. Kerem", "Dağ", "terapist8", UserRole.Terapist),
+                CreateUser("Psk. Burcu", "Ersoy", "terapist9", UserRole.Terapist),
+                CreateUser("Psk. Ozan", "Tekin", "terapist10", UserRole.Terapist)
             };
             users.AddRange(therapists);
 
-            // Kullanıcıları önce kaydedelim ki ID'leri oluşsun (Session bağlantısı için gerekli)
+            // Kullanıcıları kaydet (ID'ler oluşsun)
             await context.Users.AddRangeAsync(users);
             await context.SaveChangesAsync();
 
-            // Eklenen "Atanmamış" kullanıcısının ID'sini al
+            // Sistem kullanıcısının ID'sini al
             int unassignedId = unassignedAdvisor.Id;
 
-            // --- 5. ÖĞRENCİLER VE BAŞVURULAR (10 Adet) ---
+            // --- 5. ÖĞRENCİLER VE BAŞVURULAR ---
             for (int i = 1; i <= 10; i++)
             {
-                string ogrenciNo = $"2024{i.ToString("0000")}";
+                string ogrenciNo = $"2024{i:0000}";
                 string ad = $"ÖğrenciAd{i}";
                 string soyad = $"ÖğrenciSoyad{i}";
                 string email = $"ogrenci{i}@bogazici.edu.tr";
 
-                // 5.1 Öğrenci User Kaydı (Giriş İçin)
-                var studentUser = CreateUser(ad, soyad, ogrenciNo, Role.Ogrenci);
-                context.Users.Add(studentUser); // Listeye değil direkt context'e ekleyip save edelim
-                await context.SaveChangesAsync();
+                // 5.1 Öğrenci User Kaydı
+                var studentUser = CreateUser(ad, soyad, ogrenciNo, UserRole.Ogrenci);
+                context.Users.Add(studentUser);
+                await context.SaveChangesAsync(); // User ID oluşsun
 
-                // 5.2 Öğrenci Profil Kaydı (Detaylar İçin)
+                // 5.2 Öğrenci Profil Kaydı
                 var studentProfile = new Student
                 {
+                    // User tablosuyla ilişki kurmak isterseniz buraya UserId eklenebilir
+                    // Şimdilik StudentNo üzerinden eşleşiyor varsayıyoruz.
                     StudentNo = ogrenciNo,
                     FirstName = ad,
                     LastName = soyad,
@@ -94,51 +102,60 @@ namespace Burem.API
                     Department = i % 2 == 0 ? "Rehberlik ve Psikolojik Danışmanlık" : "Psikoloji",
                     Gpa = 3.00 + (i * 0.05),
                     MobilePhone = "05551112233",
-                    Gender = i % 2 == 0 ? 1 : 2, // 1: Kadın, 2: Erkek
+                    Gender = i % 2 == 0 ? 1 : 2,
                     Semester = i,
-                    BirthDate = 2000 + i, // Doğum yılı olarak int tutuluyor
-                    CreatedDate = DateTime.Now.AddDays(-i), // Geçmiş tarihler
+                    BirthDate = 2000 + i,
+                    CreatedDate = DateTime.Now.AddDays(-i),
                     IsScholar = i % 3 == 0 ? "Evet" : "Hayır",
                     IsWorking = "Hayır"
                 };
                 context.Students.Add(studentProfile);
-                await context.SaveChangesAsync(); // ID oluşsun
+                await context.SaveChangesAsync(); // Student ID oluşsun
 
-                // 5.3 BAŞVURU (SESSION) KAYDI - KRİTİK ADIM
-                // Eğer bu kayıt olmazsa öğrenci "Yeni Başvurular" listesinde görünmez.
+                // 5.3 BAŞVURU (SESSION) KAYDI
                 var session = new Session
                 {
                     StudentId = studentProfile.Id,
-                    SessionDate = DateTime.Now.AddDays(-i), // Başvuru tarihi
-                    AdvisorId = unassignedId, // Henüz atanmamış (Dummy kullanıcı ID'si)
-                    SessionNumber = 1, // İlk başvuru
-                    Status = "Atama Bekliyor", // Sekreterin göreceği durum
+                    SessionDate = DateTime.Now.AddDays(-i),
+                    AdvisorId = unassignedId, // Sistem kullanıcısına ata
+                    SessionNumber = 1,
+                    Status = "Atama Bekliyor",
                     RiskLevel = "Düşük",
-                    IsOnline = i % 2 == 0, // Bazıları online, bazıları yüz yüze
+                    IsOnline = i % 2 == 0,
                     IsArchived = false
                 };
                 context.Sessions.Add(session);
-                await context.SaveChangesAsync(); // Session ID oluşsun
-
-                // 5.4 ÖRNEK CEVAPLAR (Formun dolu görünmesi için)
-                // Burada QuestionId'lerin veritabanınızda 1,2,3.. gibi var olduğunu varsayıyoruz.
-                // Eğer soru tablosu boşsa, önce soruların eklenmesi gerekir.
-                // Şimdilik hata vermemesi için dummy cevap eklemiyoruz veya catch bloğuna alıyoruz.
-                // İsterseniz buraya soru ekleme kodu da yazılabilir.
+                // 5.4 Randevu Ekleme (Opsiyonel - Test İçin)
+                // Her 2 öğrenciden birine rastgele bir randevu atayalım
+                if (i % 2 == 0)
+                {
+                    var appointment = new Appointment
+                    {
+                        Session = session, // ID yerine nesne üzerinden bağlayabiliriz
+                        TherapistId = therapists[0].Id, // İlk terapiste ata
+                        UserId = studentUser.Id, // --- YENİ EKLENEN KISIM (Randevu kime?) ---
+                        AppointmentDate = DateTime.Now.AddDays(i + 1),
+                        AppointmentType = "Yüz Yüze",
+                        LocationOrLink = "Oda 101",
+                        CreatedAt = DateTime.Now
+                    };
+                    context.Appointments.Add(appointment);
+                }
             }
 
             await context.SaveChangesAsync();
             Console.WriteLine("--- Veri Tohumlama Tamamlandı ---");
         }
 
-        private static User CreateUser(string firstName, string lastName, string userName, Role role)
+        // Helper Metodu Güncelledik: Role sınıfı yerine UserRole Enum alıyor
+        private static User CreateUser(string firstName, string lastName, string userName, UserRole role)
         {
             return new User
             {
                 FirstName = CryptoHelper.Encrypt(firstName),
                 LastName = CryptoHelper.Encrypt(lastName),
                 UserName = userName,
-                UserType = (int)role,
+                UserType = (int)role, // Enum'ı int'e çevirip veritabanına atıyoruz
                 Status = 1,
                 IsDeleted = 0
             };
