@@ -42,7 +42,10 @@ const LoginPage = () => {
                 
                 // Yönlendirme mantığı
                 if (userData.role === 'admin') navigate('/admin');
-                else if (userData.role === 'student') navigate('/student');
+                else if (userData.role === 'student') {
+                     navigate('/student'); // <--- ESKİ KOD (Dashboard'a gidiyordu)
+                    //navigate('/evaluation-form'); // <--- YENİ KOD (Test için form sayfasına gider)
+                }
                 else if (userData.role === 'therapist') navigate('/therapist');
                 else if (userData.role === 'secretary') navigate('/secretary');
             } else {

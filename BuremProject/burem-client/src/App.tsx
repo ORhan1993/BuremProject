@@ -73,12 +73,24 @@ function App() {
                     <StudentForm />
                 </ProtectedRoute>
             } />
-              {/* DEĞERLENDİRME FORMU ROTASI GÜNCELLENDİ */}
+               {/* --- DEĞERLENDİRME FORMU ROTASI GÜNCELLENDİ --- */}
+            
+            
             <Route path="/degerlendirme-formu" element={
                 <ProtectedRoute allowedRoles={['student']}>
                     <EvaluationForm />
                 </ProtectedRoute>
             } />
+            
+
+            {/* YENİ KOD: Login sayfasındaki yönlendirme ile eşleşiyor 
+            <Route path="/evaluation-form" element={
+                <ProtectedRoute allowedRoles={['student']}>
+                    <EvaluationForm />
+                </ProtectedRoute>
+            } />
+
+            */}
 
             {/* ADMİN ROTALARI */}
             <Route path="/admin" element={

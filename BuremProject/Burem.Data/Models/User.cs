@@ -6,9 +6,11 @@ namespace Burem.Data.Models;
 public enum UserRole
 {
     Admin = 1,
-    Terapist = 4,
     Sekreter = 2,
-    Ogrenci = 3
+    Ogrenci = 3,
+    Terapist = 4
+    
+    
 }
 
 public partial class User
