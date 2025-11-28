@@ -18,7 +18,7 @@ public partial class Session
     public virtual User? Advisor { get; set; }
 
     // --- YENİ EKLENEN ALANLAR (ANALİZE GÖRE) ---
-    /*
+    
     // Kaçıncı seans olduğu (1'den 8'e kadar)
     public int SessionNumber { get; set; } = 1;
 
@@ -35,7 +35,7 @@ public partial class Session
     public string? ReferralDestination { get; set; }
 
     // -------------------------------------------
-    */
+    
 
     public int? DanismanO { get; set; }
 

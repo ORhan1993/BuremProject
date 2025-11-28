@@ -196,10 +196,40 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.SessionDate).HasColumnType("datetime");
             entity.Property(e => e.StudentId).HasColumnName("StudentID");
 
-            entity.HasOne(d => d.Student).WithMany(p => p.Sessions)
-                .HasForeignKey(d => d.StudentId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Sessions_Students");
+            // --- YENİ EKLENEN ALANLAR ---
+
+            // SessionNumber varsayılan değeri 1
+            entity.Property(e => e.SessionNumber)
+                .HasDefaultValue(1);
+
+            // Status (Planlandı, Tamamlandı vb. - 50 karakter yeterli)
+            entity.Property(e => e.Status)
+                .HasMaxLength(50);
+
+            // TherapistNotes (NVARCHAR(MAX) olması için MaxLength vermiyoruz)
+            entity.Property(e => e.TherapistNotes);
+
+            // RiskLevel (Düşük, Orta, Yüksek - 50 karakter yeterli)
+            entity.Property(e => e.RiskLevel)
+                .HasMaxLength(50);
+
+            // ReferralDestination (255 karakter)
+            entity.Property(e => e.ReferralDestination)
+                .HasMaxLength(255);
+
+            // -----------------------------
+
+            // İLİŞKİ TANIMLARI (Kodundaki iki parçayı burada birleştirdim)
+            entity.HasOne(d => d.Advisor)
+                  .WithMany()
+                  .HasForeignKey(d => d.AdvisorId)
+                  .OnDelete(DeleteBehavior.ClientSetNull);
+
+            entity.HasOne(d => d.Student)
+                  .WithMany(p => p.Sessions)
+                  .HasForeignKey(d => d.StudentId)
+                  .OnDelete(DeleteBehavior.ClientSetNull)
+                  .HasConstraintName("FK_Sessions_Students");
         });
 
         modelBuilder.Entity<SiteContent>(entity =>
