@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -15,10 +14,16 @@ namespace Burem.Data.Models
         [ForeignKey("SessionId")]
         public virtual Session Session { get; set; }
 
-        // Hangi terapist atandı?
+        // Hangi terapist atandı? (Doktor/Uzman)
         public int TherapistId { get; set; }
         [ForeignKey("TherapistId")]
         public virtual User Therapist { get; set; }
+
+
+        // Randevuyu hangi kullanıcı verdi?
+        public int? UserId { get; set; } // Veritabanında NULL olabildiği için int? yaptık.
+        [ForeignKey("UserId")]
+        public virtual User User { get; set; }
 
         public DateTime AppointmentDate { get; set; } // Tarih ve Saat birlikte
 

@@ -1,3 +1,4 @@
+using Burem.API;
 using Burem.API.Abstract;
 using Burem.API.Concrete;
 using Burem.Data.Models; 
@@ -49,6 +50,22 @@ builder.Services.AddScoped<ISecurityService, SecurityConcrete>();
 builder.Services.AddScoped<IAppointmentService, AppointmentConcrete>();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<BuremDbContext>();
+        // DataSeeder sýnýfýndaki metodu çaðýrýyoruz
+        await DataSeeder.SeedAsync(context);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Veritabaný seed edilirken bir hata oluþtu.");
+    }
+}
 
 // --- HTTP ÝSTEK HATTI (PIPELINE) ---
 
