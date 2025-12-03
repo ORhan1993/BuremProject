@@ -61,7 +61,7 @@ const LoginPage = () => {
                 
                 <Card 
                     style={{ width: 420, borderRadius: 16, boxShadow: '0 10px 25px rgba(0,0,0,0.08)' }} 
-                    bodyStyle={{ padding: 40 }}
+                    styles={{ padding: 40 }}
                 >
                     <div style={{ textAlign: 'center', marginBottom: 30 }}>
                         <div style={{ 

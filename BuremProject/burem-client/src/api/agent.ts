@@ -89,6 +89,8 @@ export interface StudentProfileDetail {
 export interface SearchCriteria { studentNo?: string; firstName?: string; lastName?: string; }
 
 
+
+
 // --- API YARDIMCILARI ---
 const responseBody = <T>(response: AxiosResponse<T>) => response.data;
 
@@ -159,6 +161,17 @@ const Appointments = {
     create: (data: AppointmentRequest) => requests.post('/Appointments/Create', data)
 };
 
+const Reports = {
+    getDashboard: () => requests.get('/reports/dashboard'),
+    updateAppointmentStatus: (id: number, status: number, reason: string) => 
+        requests.post('/appointments/update-status', { appointmentId: id, status, reason })
+};
+
+const Groups = {
+    list: (therapistId: number) => requests.get(`/Groups/List/${therapistId}`),
+    create: (data: any) => requests.post('/Groups/Create', data)
+};
+
 const agent = { 
     Content, 
     Forms, 
@@ -168,7 +181,9 @@ const agent = {
     Sessions, 
     Stats, 
     Export, 
-    Appointments 
+    Appointments,
+    Reports,
+    Groups
 };
 
 export default agent;

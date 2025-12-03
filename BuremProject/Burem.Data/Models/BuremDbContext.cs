@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Burem.Data.Enums; // Enumların olduğu namespace
 
 namespace Burem.Data.Models;
 
@@ -15,6 +16,7 @@ public partial class BuremDbContext : DbContext
     {
     }
 
+    // --- TABLOLAR (DB SETS) ---
     public virtual DbSet<Answer> Answers { get; set; }
     public virtual DbSet<ErrorLog> ErrorLogs { get; set; }
     public virtual DbSet<ExcelView> ExcelViews { get; set; }
@@ -24,17 +26,24 @@ public partial class BuremDbContext : DbContext
     public virtual DbSet<Question> Questions { get; set; }
     public virtual DbSet<QuestionGroup> QuestionGroups { get; set; }
     public virtual DbSet<QuestionType> QuestionTypes { get; set; }
-    public virtual DbSet<Role> Roles { get; set; } // --- YENİ EKLENDİ ---
+    public virtual DbSet<Role> Roles { get; set; }
     public virtual DbSet<SearchView> SearchViews { get; set; }
     public virtual DbSet<Session> Sessions { get; set; }
     public virtual DbSet<SiteContent> SiteContents { get; set; }
     public virtual DbSet<Student> Students { get; set; }
     public virtual DbSet<User> Users { get; set; }
     public virtual DbSet<Appointment> Appointments { get; set; }
+    public virtual DbSet<GroupStudy> GroupStudies { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code.
-        => optionsBuilder.UseSqlServer("Server=193.140.192.77;Database=buremkayit;user id=buremkayit;password=uWPLeo4sL4;MultipleActiveResultSets=True;TrustServerCertificate=True;");
+    {
+        if (!optionsBuilder.IsConfigured)
+        {
+            // UYARI: Canlı ortamda ConnectionString burada OLMAMALIDIR. appsettings.json'dan okunmalıdır.
+            // Migration alırken hata almamak için geçici olarak bırakıldı.
+            optionsBuilder.UseSqlServer("Server=193.140.192.77;Database=buremkayit;user id=buremkayit;password=uWPLeo4sL4;MultipleActiveResultSets=True;TrustServerCertificate=True;");
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -58,19 +67,36 @@ public partial class BuremDbContext : DbContext
         // --- 2. APPOINTMENT (RANDEVULAR) - GÜNCELLENDİ ---
         modelBuilder.Entity<Appointment>(entity =>
         {
+            entity.ToTable("Appointments"); // Tablo adı
             entity.HasKey(e => e.Id);
 
-            // Terapist İlişkisi
+            entity.Property(e => e.AppointmentDate).HasColumnType("datetime2(7)");
+            entity.Property(e => e.EndDate).HasColumnType("datetime2(7)"); // Yeni alan
+            entity.Property(e => e.AppointmentType).HasMaxLength(50);
+            entity.Property(e => e.LocationOrLink).HasMaxLength(500);
+            entity.Property(e => e.CancellationReason).HasMaxLength(255); // Yeni alan
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+
+            // Status Enum Mapping (Veritabanında INT tutuluyor)
+            entity.Property(e => e.Status)
+                  .HasConversion<int>()
+                  .HasDefaultValue(AppointmentStatus.Planned);
+
+            // İlişkiler
+            entity.HasOne(d => d.Session)
+                  .WithMany() // Session'ın Appointments listesi yoksa boş bırak
+                  .HasForeignKey(d => d.SessionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
             entity.HasOne(d => d.Therapist)
                   .WithMany(p => p.TherapistAppointments)
                   .HasForeignKey(d => d.TherapistId)
-                  .OnDelete(DeleteBehavior.Restrict); // Silme koruması
+                  .OnDelete(DeleteBehavior.Restrict);
 
-            // Öğrenci/Kullanıcı İlişkisi (YENİ)
             entity.HasOne(d => d.User)
                   .WithMany(p => p.StudentAppointments)
                   .HasForeignKey(d => d.UserId)
-                  .OnDelete(DeleteBehavior.Restrict); // Silme koruması
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // --- 3. ERROR LOG ---
@@ -83,33 +109,20 @@ public partial class BuremDbContext : DbContext
         // --- 4. EXCEL VIEW ---
         modelBuilder.Entity<ExcelView>(entity =>
         {
-            // View olduğu için Key (PK) yoktur
             entity.HasNoKey().ToView("ExcelView");
-
-            // ID Kolonları
             entity.Property(e => e.Id).HasColumnName("ID");
             entity.Property(e => e.StudentId).HasColumnName("StudentID");
             entity.Property(e => e.SessionId).HasColumnName("SessionID");
             entity.Property(e => e.QuestionId).HasColumnName("QuestionID");
-
-            // Öğrenci Bilgileri (Küçük harf başlayan kolon isimleri için map)
             entity.Property(e => e.Gpa).HasColumnName("GPA");
             entity.Property(e => e.IsDadAlive).HasColumnName("isDadAlive");
             entity.Property(e => e.IsMotherAlive).HasColumnName("isMotherAlive");
             entity.Property(e => e.IsScholar).HasColumnName("isScholar");
             entity.Property(e => e.IsWorking).HasColumnName("isWorking");
             entity.Property(e => e.IsImported).HasColumnName("isImported");
-
-            // Metin Alanları
-            entity.Property(e => e.BasvuruTuru)
-                .HasMaxLength(19)
-                .IsUnicode(false); // VARCHAR(19)
-
-            entity.Property(e => e.QuestionTitle)
-                .HasMaxLength(513); // Genelde birleştirilmiş metin olduğu için uzunluk farklı olabilir
-
-            entity.Property(e => e.OptionValue)
-                .HasMaxLength(4000); // Cevap alanı uzun olabilir
+            entity.Property(e => e.BasvuruTuru).HasMaxLength(19).IsUnicode(false);
+            entity.Property(e => e.QuestionTitle).HasMaxLength(513);
+            entity.Property(e => e.OptionValue).HasMaxLength(4000);
         });
 
         // --- 5. IP LIST ---
@@ -168,15 +181,14 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.QuestionType1).HasMaxLength(255).HasColumnName("QuestionType");
         });
 
-        // --- 11. ROLE (YENİ EKLENDİ) ---
+        // --- 11. ROLE ---
         modelBuilder.Entity<Role>(entity =>
         {
             entity.ToTable("UserRoles");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedNever(); // ID'yi biz Enum'dan veriyoruz
+            entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.RoleName).HasMaxLength(50).IsRequired();
 
-            // Seed Data: Veritabanı oluşurken rolleri otomatik ekle
             entity.HasData(
                 new Role { Id = 1, RoleName = "Admin" },
                 new Role { Id = 2, RoleName = "Sekreter" },
@@ -196,7 +208,7 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.StudentId).HasColumnName("StudentID");
         });
 
-        // --- 13. SESSION (BAŞVURULAR) - BİRLEŞTİRİLDİ ---
+        // --- 13. SESSION (GÜNCELLENDİ) ---
         modelBuilder.Entity<Session>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
@@ -206,15 +218,15 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.IsOnline).HasDefaultValue(false).HasColumnName("isOnline");
             entity.Property(e => e.SessionDate).HasColumnType("datetime");
 
-            // Yeni Alanlar
+            // Yeni Raporlama Alanları
             entity.Property(e => e.SessionNumber).HasDefaultValue(1);
             entity.Property(e => e.Status).HasMaxLength(50);
             entity.Property(e => e.RiskLevel).HasMaxLength(50);
             entity.Property(e => e.ReferralDestination).HasMaxLength(255);
+            entity.Property(e => e.TherapistNotes).HasColumnType("nvarchar(max)"); // Gizli notlar
 
-            // İlişkiler
             entity.HasOne(d => d.Advisor)
-                  .WithMany() // Advisor'ın Sessions listesi yoksa WithMany() boş bırakılır
+                  .WithMany()
                   .HasForeignKey(d => d.AdvisorId)
                   .OnDelete(DeleteBehavior.ClientSetNull);
 
@@ -255,11 +267,16 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.LastName).HasMaxLength(150);
             entity.Property(e => e.UserName).HasMaxLength(255);
 
+            // Uzman Türü (Enum -> String olarak veritabanında NVARCHAR tutulacak)
+            entity.Property(e => e.TherapistCategory)
+                  .HasMaxLength(50)
+                  .HasConversion<string>();
+
             // UserType -> Role İlişkisi
             entity.HasOne(d => d.Role)
                   .WithMany()
                   .HasForeignKey(d => d.UserType)
-                  .OnDelete(DeleteBehavior.Restrict); // Rol silinirse User silinmesin
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         OnModelCreatingPartial(modelBuilder);

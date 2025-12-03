@@ -114,5 +114,40 @@ namespace Burem.API.Helpers
 
             smtpClient.Send(mailMessage);
         }
+
+
+        // MailHelper.cs içine eklenecekler:
+
+        public void SendEvaluationEmail(string toEmail, string studentName, string therapistName, string sessionDate)
+        {
+            
+            string subject = "BÜREM - Görüşme Değerlendirme Formu";
+            // Örnek Link - Gerçek projede frontend URL'iniz olmalı
+            string evaluationLink = $"https://burembasvuru.bogazici.edu.tr/degerlendirme?student={toEmail}";
+
+            string body = $@"
+        <h3>Merhaba {studentName},</h3>
+        <p>{sessionDate} tarihinde Uzman {therapistName} ile gerçekleştirdiğiniz görüşme tamamlanmıştır.</p>
+        <p>Hizmet kalitemizi artırmak amacıyla görüşmenizi değerlendirmeniz bizim için önemlidir.</p>
+        <p><a href='{evaluationLink}'>Değerlendirme Formunu Doldurmak İçin Tıklayınız</a></p>
+        <br>
+        <p>Sağlıklı günler dileriz,<br>BÜREM Yönetimi</p>";
+
+            SendMail(toEmail, subject, body);
+        }
+
+        public void SendCancellationEmail(string toEmail, string studentName, string date, string time, string reason)
+        {
+            string subject = "BÜREM - Randevu İptal Bilgilendirmesi";
+            string body = $@"
+        <h3>Merhaba {studentName},</h3>
+        <p>{date} saat {time} tarihindeki randevunuz aşağıdaki nedenle iptal edilmiştir veya durum değişikliği olmuştur:</p>
+        <p><strong>Neden:</strong> {reason}</p>
+        <p>Lütfen sistem üzerinden yeni bir randevu oluşturmak için iletişime geçiniz.</p>
+        <br>
+        <p>BÜREM Yönetimi</p>";
+
+            SendMail(toEmail, subject, body);
+        }
     }
 }

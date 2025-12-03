@@ -3,6 +3,7 @@ import LoginPage from './pages/LoginPage';
 import StudentForm from './pages/StudentForm';
 import StudentDashboard from './pages/StudentDashboard';
 import EvaluationForm from './pages/EvaluationForm'; 
+import GroupStudiesPage from './pages/terapist/GroupStudiesPage';
 import AdminPanel from './pages/admin/AdminPanel';
 import SecretariesPage from './pages/admin/SecretariesPage';
 import StudentSearchPage from './pages/StudentSearchPage';
@@ -141,6 +142,8 @@ function App() {
 
         {/* 4. HATALI URL YAKALAMA */}
         <Route path="*" element={<Navigate to="/login" replace />} />
+
+        <Route path="/therapist/groups" element={<GroupStudiesPage />} />
     </Routes>
   );
 }

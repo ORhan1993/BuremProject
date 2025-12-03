@@ -4,9 +4,11 @@
     {
         public int SessionId { get; set; }
         public int TherapistId { get; set; }
-        public string Date { get; set; } // "dd.MM.yyyy" formatında gelecek
-        public string Time { get; set; } // "HH:mm" formatında gelecek
-        public string Type { get; set; } // "Online", "Yüz Yüze"
-        public string RoomLink { get; set; }
+        public int? UserId { get; set; }
+        public DateTime AppointmentDate { get; set; }
+        public String AppointmentHour { get; set; }
+        public int DurationMinutes { get; set; } = 50; // Varsayılan süre
+        public string AppointmentType { get; set; }
+        public string LocationOrLink { get; set; }
     }
 }

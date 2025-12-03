@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Burem.Data.Enums;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -32,6 +33,8 @@ namespace Burem.Data.Models
         // Veritabanındaki 'int' değer (1, 2, 3, 4)
         public int UserType { get; set; }
 
+       
+
         // İlişki: Veritabanındaki 'UserRoles' tablosuna gider
         [ForeignKey("UserType")]
         public virtual Role Role { get; set; } = null!;
@@ -53,5 +56,7 @@ namespace Burem.Data.Models
 
         [InverseProperty("Therapist")]
         public virtual ICollection<Appointment> TherapistAppointments { get; set; }
+
+        public TherapistCategory? TherapistCategory { get; set; }
     }
 }

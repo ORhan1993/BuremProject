@@ -1,193 +1,357 @@
 import React, { useState } from 'react';
 import { 
-    Layout, Card, Typography, Timeline, Tag, Button, Alert, 
-    Descriptions, Badge, Row, Col, Space, Divider 
+  Layout, 
+  Card, 
+  Typography, 
+  Button, 
+  Row, 
+  Col, 
+  Tag, 
+  Avatar, 
+  Tabs, 
+  Space,
+  Divider,
+  Alert
 } from 'antd';
 import { 
-    ClockCircleOutlined, VideoCameraOutlined, EnvironmentOutlined, 
-    CheckCircleOutlined, SyncOutlined, FileTextOutlined, LogoutOutlined
+  BellOutlined, 
+  LogoutOutlined, 
+  UserOutlined, 
+  MailOutlined, 
+  PhoneOutlined, 
+  BookOutlined,
+  CalendarOutlined,
+  EnvironmentOutlined,
+  VideoCameraOutlined,
+  RightOutlined,
+  ClockCircleOutlined,
+  MedicineBoxOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
 
-const { Header, Content, Footer } = Layout;
+const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 
-// --- MOCK DATA (Backend'den gelecek veriler) ---
-const studentData = {
+// --- STİL NESNELERİ (CSS Yerine) ---
+const styles = {
+  layout: {
+    minHeight: '100vh',
+    backgroundColor: '#f5f7fa', // Daha yumuşak bir gri
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: '0 24px',
+    height: '72px',
+    borderBottom: '1px solid #f0f0f0',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+  },
+  logoBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px'
+  },
+  logoIcon: {
+    width: '40px',
+    height: '40px',
+    backgroundColor: '#003eb1',
+    color: '#fff',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '20px',
+    fontWeight: 'bold'
+  },
+  mainContent: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    width: '100%',
+    padding: '32px 24px',
+  },
+  card: {
+    borderRadius: '16px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+    border: 'none',
+    overflow: 'hidden'
+  },
+  profileCardHeader: {
+    background: 'linear-gradient(135deg, #003eb1 0%, #0066ff 100%)',
+    padding: '24px',
+    color: '#fff',
+    borderRadius: '16px 16px 0 0',
+    marginBottom: '-16px' // İçeriği yukarı çekmek için
+  },
+  infoItem: {
+    padding: '16px',
+    backgroundColor: '#f8fafc',
+    borderRadius: '12px',
+    marginBottom: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px'
+  },
+  applicationCard: {
+    marginBottom: '16px',
+    border: '1px solid #f0f0f0',
+    borderRadius: '12px',
+    padding: '20px',
+    transition: 'all 0.3s ease'
+  },
+  sectionTitle: {
+    marginBottom: '24px',
+    color: '#1f1f1f'
+  }
+};
+
+// --- TİP TANIMLARI (TypeScript kullanıyorsanız) ---
+// Eğer JS kullanıyorsanız bu kısmı silebilirsiniz.
+interface Appointment {
+  date: string;
+  time: string;
+  isOnline: boolean;
+}
+
+interface Application {
+  id: string;
+  type: string;
+  status: string;
+  applicationDate: string;
+  lastUpdate: string;
+  therapist: string | null;
+  nextAppointment: Appointment | null;
+}
+
+// --- ANA BİLEŞEN ---
+const StudentDashboard = () => {
+  // MOCK VERİLER (Backend'den geliyormuş gibi)
+  const userData = {
     name: "Ceren Şirin",
     studentNo: "2024106006",
     department: "Kimya Öğretmenliği",
-    status: "Süreç Devam Ediyor", // Başvuru Alındı, Atama Bekliyor, Süreç Devam Ediyor, Sonlandı
-    appointments: [
-        {
-            id: 1,
-            date: "20.11.2025",
-            time: "10:00",
-            type: "Online",
-            link: "https://zoom.us/j/123456789", // Eğer online ise link
-            location: null,
-            therapist: "Rabia Özdemir",
-            status: "upcoming" // upcoming, completed, cancelled
-        },
-        {
-            id: 2,
-            date: "12.11.2025",
-            time: "14:00",
-            type: "Yüz Yüze",
-            link: null,
-            location: "Kuzey Kampüs, BÜREM Ofisi, Oda 204",
-            therapist: "Rabia Özdemir",
-            status: "completed"
-        }
-    ]
-};
+    email: "ceren.sirin@boun.edu.tr",
+    phone: "+90 5XX XXX XX XX"
+  };
 
-const StudentDashboard = () => {
-    const navigate = useNavigate();
-    const [hasPendingEvaluation, setHasPendingEvaluation] = useState(false); // Değerlendirme anketi bekliyor mu?
+  const applications: Application[] = [
+    {
+      id: "BSV-2025-001",
+      type: "Bireysel Psikolojik Danışmanlık",
+      status: "Aktif Süreç",
+      applicationDate: "01.11.2025",
+      lastUpdate: "20.11.2025",
+      therapist: "Rabia Özdemir",
+      nextAppointment: {
+        date: "20 Kasım 2025",
+        time: "10:00",
+        isOnline: true
+      }
+    },
+    {
+      id: "BSV-2024-089",
+      type: "Grup Terapisi (Stres Yönetimi)",
+      status: "Tamamlandı",
+      applicationDate: "15.05.2024",
+      lastUpdate: "30.06.2024",
+      therapist: "Ahmet Yılmaz",
+      nextAppointment: null
+    }
+  ];
 
-    const handleLogout = () => {
-        // Token temizleme işlemleri...
-        navigate('/');
-    };
+  const handleLogout = () => {
+    console.log("Çıkış yapıldı");
+    // navigate('/login');
+  };
 
-    const handleGoToEvaluation = () => {
-        navigate('/degerlendirme-formu');
-    };
+  // Status Badge Helper
+  const getStatusTag = (status: string) => {
+    let color = 'default';
+    if (status === 'Aktif Süreç') color = 'processing';
+    if (status === 'Tamamlandı') color = 'success';
+    if (status === 'Beklemede') color = 'warning';
+    
+    return <Tag color={color} style={{ borderRadius: '12px', padding: '4px 12px', border: 'none' }}>{status}</Tag>;
+  };
 
-    return (
-        <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-            {/* HEADER */}
-            <Header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#003366', padding: '0 24px' }}>
-                <div style={{ color: 'white', fontSize: '20px', fontWeight: 'bold' }}>BÜREM Öğrenci Paneli</div>
-                <div style={{ color: 'white' }}>
-                    <Space>
-                        <span>{studentData.name}</span>
-                        <Button type="text" icon={<LogoutOutlined />} style={{ color: '#ffccc7' }} onClick={handleLogout}>Çıkış</Button>
-                    </Space>
+  return (
+    <Layout style={styles.layout}>
+      {/* HEADER */}
+      <Header style={styles.header}>
+        <div style={styles.logoBox}>
+          <div style={styles.logoIcon}>B</div>
+          <div>
+            <Title level={5} style={{ margin: 0, color: '#1f1f1f', lineHeight: 1.2 }}>BÜREM</Title>
+            <Text type="secondary" style={{ fontSize: '12px' }}>Öğrenci Paneli</Text>
+          </div>
+        </div>
+
+        <Space size="large">
+          <Button type="text" shape="circle" icon={<BellOutlined style={{ fontSize: '20px' }} />} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ textAlign: 'right', display: 'none', md: 'block' }}>
+              <Text strong style={{ display: 'block' }}>{userData.name}</Text>
+              <Text type="secondary" style={{ fontSize: '12px' }}>{userData.studentNo}</Text>
+            </div>
+            <Avatar style={{ backgroundColor: '#e6f7ff', color: '#1890ff', fontWeight: 'bold' }}>
+              {userData.name.charAt(0)}
+            </Avatar>
+            <Button onClick={handleLogout} type="text" icon={<LogoutOutlined />} danger />
+          </div>
+        </Space>
+      </Header>
+
+      {/* CONTENT */}
+      <Content style={styles.mainContent}>
+        
+        {/* KARŞILAMA MESAJI */}
+        <div style={{ marginBottom: '32px' }}>
+          <Title level={2} style={{ margin: 0, fontWeight: 700 }}>Hoş Geldin, {userData.name.split(' ')[0]} 👋</Title>
+          <Text type="secondary">Psikolojik danışmanlık süreçlerini ve randevularını buradan yönetebilirsin.</Text>
+        </div>
+
+        <Row gutter={[24, 24]}>
+          
+          {/* SOL KOLON: PROFİL & BİLGİ (8 span) */}
+          <Col xs={24} lg={8}>
+            <Card style={styles.card} bodyStyle={{ padding: 0 }}>
+              <div style={styles.profileCardHeader}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <Avatar size={64} style={{ backgroundColor: '#fff', color: '#003eb1', fontSize: '24px' }}>
+                    {userData.name.charAt(0)}
+                  </Avatar>
+                  <div style={{ color: 'white' }}>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{userData.name}</div>
+                    <div style={{ opacity: 0.8 }}>{userData.department}</div>
+                  </div>
                 </div>
-            </Header>
+              </div>
+              
+              <div style={{ padding: '32px 24px 24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <Title level={5}>Kişisel Bilgiler</Title>
+                  <Button type="link" style={{ padding: 0 }}>Düzenle</Button>
+                </div>
 
-            <Content style={{ padding: '24px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+                <div style={styles.infoItem}>
+                  <MailOutlined style={{ fontSize: '18px', color: '#8c8c8c' }} />
+                  <div>
+                    <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>E-Posta</Text>
+                    <Text strong>{userData.email}</Text>
+                  </div>
+                </div>
+
+                <div style={styles.infoItem}>
+                  <PhoneOutlined style={{ fontSize: '18px', color: '#8c8c8c' }} />
+                  <div>
+                    <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>Telefon</Text>
+                    <Text strong>{userData.phone}</Text>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '24px' }}>
+                  <Alert
+                    message="Acil Durum?"
+                    description="Mesai saatleri dışında acil bir durum yaşıyorsanız lütfen acil durum hattını arayınız."
+                    type="info"
+                    showIcon
+                    style={{ borderRadius: '12px', border: '1px solid #bae7ff', backgroundColor: '#e6f7ff' }}
+                    action={
+                      <Button size="small" type="primary" ghost>
+                        Acil Hat
+                      </Button>
+                    }
+                  />
+                </div>
+              </div>
+            </Card>
+          </Col>
+
+          {/* SAĞ KOLON: BAŞVURULAR & RANDEVULAR (16 span) */}
+          <Col xs={24} lg={16}>
+            <Card style={styles.card}>
+              <Tabs defaultActiveKey="1" size="large" tabBarStyle={{ marginBottom: '24px' }}>
                 
-                {/* 1. BÖLÜM: DURUM BİLGİLENDİRMESİ */}
-                <div style={{ marginBottom: 24 }}>
-                    <Alert
-                        message="Başvuru Durumu"
-                        description={
-                            <div style={{marginTop: 5}}>
-                                <Tag color="processing" style={{ fontSize: 14, padding: '5px 10px' }}>
-                                    {studentData.status}
-                                </Tag>
-                                <span style={{marginLeft: 10, fontSize: 12, color: '#666'}}>
-                                    Son güncelleme: 20.11.2025
-                                </span>
+                {/* TAB 1: BAŞVURULARIM */}
+                <Tabs.TabPane tab={<span><BookOutlined /> Başvurularım</span>} key="1">
+                  {applications.map((app) => (
+                    <div key={app.id} style={styles.applicationCard}>
+                      <Row justify="space-between" align="middle" style={{ marginBottom: '16px' }}>
+                        <Col>
+                          <Space>
+                            <div style={{ backgroundColor: '#e6f7ff', padding: '8px', borderRadius: '8px', color: '#1890ff' }}>
+                              <MedicineBoxOutlined style={{ fontSize: '20px' }} />
                             </div>
-                        }
-                        type="info"
-                        showIcon
-                        icon={<SyncOutlined spin />}
-                    />
-                </div>
-
-                {/* DEĞERLENDİRME UYARISI (EĞER VARSA) */}
-                {hasPendingEvaluation && (
-                    <Alert
-                        message="Değerlendirme Formu Bekliyor"
-                        description="Görüşme süreciniz tamamlanmıştır. Lütfen hizmet kalitemizi artırmamız için değerlendirme formunu doldurunuz."
-                        type="warning"
-                        showIcon
-                        action={
-                            <Button size="small" type="primary" onClick={handleGoToEvaluation}>
-                                Formu Doldur
-                            </Button>
-                        }
-                        style={{ marginBottom: 24 }}
-                    />
-                )}
-
-                <Row gutter={[24, 24]}>
-                    {/* 2. BÖLÜM: AKTİF / GELECEK RANDEVU KARTI */}
-                    <Col xs={24} md={14}>
-                        <Card title="Yaklaşan Randevunuz" bordered={false} style={{ height: '100%', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                            {studentData.appointments.filter(a => a.status === 'upcoming').length > 0 ? (
-                                studentData.appointments.filter(a => a.status === 'upcoming').map(app => (
-                                    <div key={app.id}>
-                                        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                                            <Title level={2} style={{ color: '#1e4a8b', margin: 0 }}>{app.time}</Title>
-                                            <Text type="secondary" style={{ fontSize: 16 }}>{app.date}</Text>
-                                        </div>
-                                        
-                                        <Descriptions column={1} bordered size="small">
-                                            <Descriptions.Item label="Uzman"><b>{app.therapist}</b></Descriptions.Item>
-                                            <Descriptions.Item label="Görüşme Türü">
-                                                <Tag color={app.type === 'Online' ? 'purple' : 'blue'}>{app.type}</Tag>
-                                            </Descriptions.Item>
-                                            <Descriptions.Item label={app.type === 'Online' ? 'Bağlantı' : 'Konum'}>
-                                                {app.type === 'Online' ? (
-                                                    <a href={app.link || '#'} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                                        <VideoCameraOutlined /> Görüşmeye Katıl (Zoom)
-                                                    </a>
-                                                ) : (
-                                                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                                        <EnvironmentOutlined /> {app.location}
-                                                    </span>
-                                                )}
-                                            </Descriptions.Item>
-                                        </Descriptions>
-                                        
-                                        <div style={{ marginTop: 20, fontSize: 12, color: '#999', textAlign: 'center' }}>
-                                            * Randevu saatinizden 5 dakika önce hazır bulunmanız rica olunur.
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                                    <CheckCircleOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 10 }} />
-                                    <p>Planlanmış aktif bir randevunuz bulunmamaktadır.</p>
-                                    <p>Sekreterya tarafından atama yapıldığında burada görünecektir.</p>
-                                </div>
-                            )}
-                        </Card>
-                    </Col>
-
-                    {/* 3. BÖLÜM: GEÇMİŞ RANDEVULAR (TIMELINE) */}
-                    <Col xs={24} md={10}>
-                        <Card title="Geçmiş Görüşmeler" bordered={false} style={{ height: '100%', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                            <Timeline>
-                                {studentData.appointments.filter(a => a.status === 'completed').map(app => (
-                                    <Timeline.Item key={app.id} color="green">
-                                        <p style={{ margin: 0, fontWeight: 'bold' }}>{app.date}</p>
-                                        <p style={{ margin: 0, fontSize: 12 }}>{app.therapist} ile görüşme</p>
-                                        <Tag style={{ marginTop: 5 }}>{app.type}</Tag>
-                                    </Timeline.Item>
-                                ))}
-                                <Timeline.Item color="blue">
-                                    <p style={{ margin: 0, fontSize: 12 }}>Başvuru oluşturuldu</p>
-                                    <p style={{ margin: 0, fontSize: 10, color: '#999' }}>01.11.2025</p>
-                                </Timeline.Item>
-                            </Timeline>
-                        </Card>
-                    </Col>
-                </Row>
-
-                {/* 4. BÖLÜM: İLETİŞİM & YARDIM */}
-                <Card style={{ marginTop: 24, background: '#e6f7ff', borderColor: '#91d5ff' }}>
-                    <Row align="middle" justify="space-between">
-                        <Col>
-                            <Text strong style={{ color: '#0050b3' }}>Bir sorun mu yaşıyorsunuz?</Text>
-                            <div style={{ fontSize: 13 }}>Randevu iptali veya acil durumlar için sekreterya ile iletişime geçebilirsiniz.</div>
+                            <div>
+                              <Text strong style={{ fontSize: '16px', display: 'block' }}>{app.type}</Text>
+                              <Text type="secondary" style={{ fontSize: '12px' }}>Referans: {app.id}</Text>
+                            </div>
+                          </Space>
                         </Col>
                         <Col>
-                            <Button type="primary" ghost icon={<FileTextOutlined />}>BÜREM İletişim</Button>
+                          {getStatusTag(app.status)}
                         </Col>
-                    </Row>
-                </Card>
+                      </Row>
 
-            </Content>
-            <Footer style={{ textAlign: 'center', color: '#888' }}>Bürem ©2025 Boğaziçi Üniversitesi</Footer>
-        </Layout>
-    );
+                      <Divider style={{ margin: '12px 0' }} />
+
+                      <Row gutter={[16, 16]}>
+                        <Col xs={12} sm={8}>
+                          <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>Başvuru Tarihi</Text>
+                          <Space size={4}><CalendarOutlined /> {app.applicationDate}</Space>
+                        </Col>
+                        <Col xs={12} sm={8}>
+                          <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>Son Güncelleme</Text>
+                          <Space size={4}><ClockCircleOutlined /> {app.lastUpdate}</Space>
+                        </Col>
+                        <Col xs={24} sm={8}>
+                          <Text type="secondary" style={{ fontSize: '12px', display: 'block' }}>Atanan Uzman</Text>
+                          <Space size={4}><UserOutlined /> {app.therapist || '-'}</Space>
+                        </Col>
+                      </Row>
+
+                      {app.nextAppointment && (
+                        <div style={{ marginTop: '16px', backgroundColor: '#f9f0ff', padding: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Space>
+                            {app.nextAppointment.isOnline ? <VideoCameraOutlined style={{ color: '#722ed1' }} /> : <EnvironmentOutlined style={{ color: '#722ed1' }} />}
+                            <div>
+                              <Text style={{ color: '#722ed1', fontWeight: 'bold', fontSize: '12px' }}>SIRADAKİ RANDEVU</Text>
+                              <div style={{ color: '#1f1f1f', fontWeight: 600 }}>
+                                {app.nextAppointment.date} - {app.nextAppointment.time}
+                              </div>
+                            </div>
+                          </Space>
+                          <Button size="small" type="text" style={{ color: '#722ed1' }}>
+                            Detay <RightOutlined style={{ fontSize: '10px' }} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {applications.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#ccc' }}>
+                      <MedicineBoxOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
+                      <p>Henüz aktif bir başvurunuz bulunmamaktadır.</p>
+                      <Button type="primary">Yeni Başvuru Yap</Button>
+                    </div>
+                  )}
+                </Tabs.TabPane>
+
+                {/* TAB 2: GEÇMİŞ RANDEVULAR */}
+                <Tabs.TabPane tab={<span><ClockCircleOutlined /> Randevu Geçmişi</span>} key="2">
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                    <p>Geçmiş randevularınız burada listelenecektir.</p>
+                  </div>
+                </Tabs.TabPane>
+                
+              </Tabs>
+            </Card>
+          </Col>
+        </Row>
+      </Content>
+    </Layout>
+  );
 };
 
 export default StudentDashboard;

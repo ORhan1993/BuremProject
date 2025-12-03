@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { 
     Layout, Card, Table, Tag, Button, Tabs, Avatar, List, 
     Typography, Drawer, Descriptions, Badge, Timeline, Collapse, Space, 
-    Tooltip, Input, Row, Col, Divider, message, Modal, DatePicker, Select, Alert
+    Tooltip, Input, Row, Col, Divider, message, Modal, DatePicker, Select, Alert, Form, InputNumber
 } from 'antd';
 import { 
     CalendarOutlined, ClockCircleOutlined, UserOutlined, 
     FileTextOutlined, HistoryOutlined, CheckCircleOutlined, 
     CloseCircleOutlined, RightOutlined, MedicineBoxOutlined,
-    EditOutlined, SaveOutlined, PlusOutlined, WarningOutlined
+    EditOutlined, SaveOutlined, PlusOutlined, WarningOutlined,
+    TeamOutlined // Grup ikonu eklendi
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -23,12 +24,17 @@ const SECONDARY_COLOR = '#8cc8ea';
 const BOUN_FONT = 'Helvetica, Arial, sans-serif';
 const CARD_STYLE = { borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: 'none', marginBottom: 20 };
 
-// --- MOCK DATA (Backend'den gelecek veriler) ---
-// Öğrencilerin "kaçıncı seansta" oldukları bilgisini burada tutuyoruz (currentSessionCount)
+// --- MOCK DATA (BİREYSEL) ---
 const mockAppointments = [
     { id: 101, studentName: 'Ali Yılmaz', studentId: '20201001', date: dayjs().format('DD.MM.YYYY'), time: '10:00', type: 'Yüz Yüze', status: 'active', currentSessionCount: 1, riskLevel: 'Düşük' },
-    { id: 102, studentName: 'Ayşe Demir', studentId: '20215002', date: dayjs().format('DD.MM.YYYY'), time: '14:00', type: 'Online', status: 'active', currentSessionCount: 7, riskLevel: 'Yüksek' }, // 7. Seansta, kritik!
-    { id: 103, studentName: 'Mehmet Kaya', studentId: '20192030', date: '20.11.2025', time: '11:00', type: 'Yüz Yüze', status: 'completed', currentSessionCount: 8, riskLevel: 'Orta' }, // 8. Seans bitmiş
+    { id: 102, studentName: 'Ayşe Demir', studentId: '20215002', date: dayjs().format('DD.MM.YYYY'), time: '14:00', type: 'Online', status: 'active', currentSessionCount: 7, riskLevel: 'Yüksek' },
+    { id: 103, studentName: 'Mehmet Kaya', studentId: '20192030', date: '20.11.2025', time: '11:00', type: 'Yüz Yüze', status: 'completed', currentSessionCount: 8, riskLevel: 'Orta' },
+];
+
+// --- MOCK DATA (GRUP ÇALIŞMALARI) ---
+const mockGroups = [
+    { id: 1, groupName: 'Sosyal Beceri Grubu', startDate: '01.12.2025', endDate: '01.02.2026', sessionCount: 8, status: 'Devam Ediyor' },
+    { id: 2, groupName: 'Sınav Kaygısı Grubu', startDate: '10.10.2025', endDate: '10.12.2025', sessionCount: 6, status: 'Tamamlandı' },
 ];
 
 const mockStudentDetails = {
@@ -40,10 +46,9 @@ const mockStudentDetails = {
         phone: '0555 123 45 67',
         emergencyContact: 'Veli Yılmaz (Baba) - 0532 111 22 33',
     },
-    // TERAPİSTİN GÖRECEĞİ HASSAS VERİLER (Sekreterden gizli)
     clinicalInfo: {
-        depressionScore: 18, // PHQ-9 (Yüksek)
-        anxietyScore: 12,    // GAD-7 (Orta)
+        depressionScore: 18,
+        anxietyScore: 12,
         suicideRisk: 'Yok',
         previousTherapy: 'Evet, lise döneminde.',
         medication: 'Kullanmıyor'
@@ -60,16 +65,20 @@ const mockStudentDetails = {
 };
 
 const TherapistDashboard = () => {
+    // Mevcut State'ler
     const [drawerVisible, setDrawerVisible] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
     const [noteInput, setNoteInput] = useState("");
     const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
+    // --- YENİ: GRUP ÇALIŞMASI STATE'LERİ ---
+    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+    const [groupForm] = Form.useForm();
+
     // Detay panelini aç
     const showDetail = (record: any) => {
         setSelectedAppointment(record);
         setDrawerVisible(true);
-        // Backend'den o öğrencinin son notunu buraya setNoteInput ile çekebiliriz
     };
 
     const closeDetail = () => {
@@ -78,37 +87,39 @@ const TherapistDashboard = () => {
         setNoteInput("");
     };
 
-    // --- İŞ KURALI: YENİ SEANS EKLEME (Maksimum 8) ---
     const handleAddSession = () => {
         if (!selectedAppointment) return;
-
-        // Kural Kontrolü
         if (selectedAppointment.currentSessionCount >= 8) {
             Modal.error({
                 title: 'Maksimum Seans Sınırı',
-                content: 'Bu öğrenci ile maksimum görüşme sayısı olan 8 seansa ulaşılmıştır. Yeni seans ekleyemezsiniz. Lütfen süreci sonlandırın veya yönlendirme yapın.',
+                content: 'Bu öğrenci ile maksimum görüşme sayısı olan 8 seansa ulaşılmıştır.',
             });
             return;
         }
-
         setIsSessionModalOpen(true);
     };
 
     const saveNewSession = () => {
-        // Backend'e gidecek veri:
-        // sessionNumber: selectedAppointment.currentSessionCount + 1
-        message.success(`Randevu oluşturuldu! Bu öğrencinin ${selectedAppointment.currentSessionCount + 1}. görüşmesi olacak.`);
+        message.success(`Randevu oluşturuldu!`);
         setIsSessionModalOpen(false);
     };
 
     const saveNotes = () => {
         if(!noteInput) return;
-        // Backend'e "TherapistNotes" alanını güncelleme isteği atılır
         message.success('Gizli notlarınız şifrelenerek kaydedildi.');
-        setNoteInput(""); // Temizle veya kaydet
+        setNoteInput("");
     };
 
-    // Tablo Kolonları
+    // --- YENİ: GRUP KAYDETME FONKSİYONU ---
+    const handleSaveGroup = (values: any) => {
+        // Backend API çağrısı burada yapılacak (agent.Groups.create)
+        console.log("Kaydedilecek Grup:", values);
+        message.success('Grup çalışması başarıyla oluşturuldu.');
+        setIsGroupModalOpen(false);
+        groupForm.resetFields();
+    };
+
+    // Tablo Kolonları (Bireysel)
     const columns = [
         { 
             title: 'Tarih & Saat', 
@@ -178,6 +189,16 @@ const TherapistDashboard = () => {
         }
     ];
 
+    // --- YENİ: GRUP TABLO KOLONLARI ---
+    const groupColumns = [
+        { title: 'Grup Adı', dataIndex: 'groupName', key: 'groupName', render: (t:any) => <b>{t}</b> },
+        { title: 'Başlangıç', dataIndex: 'startDate', key: 'startDate' },
+        { title: 'Bitiş', dataIndex: 'endDate', key: 'endDate' },
+        { title: 'Oturum', dataIndex: 'sessionCount', key: 'sessionCount', render: (c:any) => <Tag>{c} Oturum</Tag> },
+        { title: 'Durum', dataIndex: 'status', key: 'status', render: (s:any) => <Badge status={s === 'Devam Ediyor' ? 'processing' : 'default'} text={s} /> },
+        { title: 'İşlem', key: 'action', render: () => <Button size="small">Detay</Button> }
+    ];
+
     return (
         <div style={{ padding: 24, fontFamily: BOUN_FONT, background: '#f0f2f5', minHeight: '100vh' }}>
             {/* ÜST BAŞLIK */}
@@ -204,6 +225,26 @@ const TherapistDashboard = () => {
                                     key: '2',
                                     label: <span><HistoryOutlined /> Arşiv / Tamamlananlar</span>,
                                     children: <Table dataSource={mockAppointments.filter(x => x.status !== 'active')} columns={columns} rowKey="id" pagination={{ pageSize: 5 }} style={{padding: 20}} />
+                                },
+                                // --- YENİ EKLENEN SEKME: GRUP ÇALIŞMALARI ---
+                                {
+                                    key: '3',
+                                    label: <span><TeamOutlined /> Grup Çalışmaları</span>,
+                                    children: (
+                                        <div style={{padding: 20}}>
+                                            <div style={{marginBottom: 16, display: 'flex', justifyContent: 'flex-end'}}>
+                                                <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsGroupModalOpen(true)}>
+                                                    Yeni Grup Oluştur
+                                                </Button>
+                                            </div>
+                                            <Table 
+                                                dataSource={mockGroups} 
+                                                columns={groupColumns} 
+                                                rowKey="id" 
+                                                pagination={false} 
+                                            />
+                                        </div>
+                                    )
                                 }
                             ]}
                         />
@@ -229,7 +270,7 @@ const TherapistDashboard = () => {
             >
                 {selectedAppointment && (
                     <div style={{fontFamily: BOUN_FONT}}>
-                        {/* HEADER: HIZLI AKSİYONLAR */}
+                        {/* Drawer İçeriği (Değişiklik yok) */}
                         <div style={{ background: '#f9f9f9', padding: 20, borderRadius: 8, marginBottom: 20, border: '1px solid #eee' }}>
                             <Row align="middle" gutter={16}>
                                 <Col>
@@ -255,14 +296,12 @@ const TherapistDashboard = () => {
                             </Descriptions>
                         </div>
 
-                        {/* SEKME YAPISI */}
                         <Tabs defaultActiveKey="1" items={[
                             {
                                 key: '1',
                                 label: 'Klinik Görünüm & Anketler',
                                 children: (
                                     <div>
-                                        {/* ÖLÇEK SONUÇLARI - SADECE TERAPİST GÖRÜR */}
                                         <Alert
                                             message="Klinik Değerlendirme Özeti"
                                             description={
@@ -288,7 +327,6 @@ const TherapistDashboard = () => {
                                             showIcon
                                             style={{marginBottom: 20}}
                                         />
-
                                         <Collapse defaultActiveKey={['1']} ghost expandIconPosition="end">
                                             <Panel header={<span style={{fontWeight: 'bold'}}>Başvuru Formu Cevapları</span>} key="1">
                                                 <List
@@ -315,10 +353,8 @@ const TherapistDashboard = () => {
                                     <div>
                                         <div style={{marginBottom: 20, background: '#fffbe6', padding: 15, borderRadius: 8, border: '1px solid #ffe58f'}}>
                                             <Text strong><WarningOutlined /> Terapist Özel Notları</Text>
-                                            <div style={{fontSize: 12, color: '#888', marginBottom: 5}}>Bu alana yazılanlar KVKK kapsamında şifrelenir ve öğrenci tarafından asla görüntülenemez.</div>
                                             <TextArea 
                                                 rows={4} 
-                                                placeholder="Bugünkü görüşme notlarınızı buraya giriniz..." 
                                                 value={noteInput}
                                                 onChange={e => setNoteInput(e.target.value)}
                                                 style={{marginTop: 8}} 
@@ -363,11 +399,66 @@ const TherapistDashboard = () => {
                 )}
                 <FormLayout />
             </Modal>
+
+            {/* --- YENİ EKLENEN: GRUP OLUŞTURMA MODALI (Analiz Uygun) --- */}
+            <Modal
+                title="Yeni Grup Çalışması Oluştur"
+                open={isGroupModalOpen}
+                onCancel={() => setIsGroupModalOpen(false)}
+                footer={null}
+            >
+                <Form form={groupForm} layout="vertical" onFinish={handleSaveGroup}>
+                    <Form.Item name="groupName" label="Hangi Grup Çalışması" rules={[{ required: true, message: 'Grup seçimi zorunludur' }]}>
+                        <Select placeholder="Seçiniz veya Yazınız" showSearch allowClear>
+                            <Option value="Sosyal Beceri Grubu">Sosyal Beceri Grubu</Option>
+                            <Option value="Anksiyete ile Baş Etme">Anksiyete ile Baş Etme</Option>
+                            <Option value="Yas Süreci Grubu">Yas Süreci Grubu</Option>
+                            <Option value="Grup Çalışması Önerilmedi">Grup Çalışması Önerilmedi</Option>
+                        </Select>
+                    </Form.Item>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="startDate" label="Grup Başlama Tarihi">
+                                <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="endDate" label="Grup Bitiş Tarihi">
+                                <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="sessionCount" label="Grup Oturum Sayısı">
+                                <InputNumber style={{ width: '100%' }} min={1} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="completionStatus" label="Bitiş Şekli">
+                                <Select placeholder="Durum Seç">
+                                    <Option value="Planlanıyor">Planlanıyor</Option>
+                                    <Option value="Devam Ediyor">Devam Ediyor</Option>
+                                    <Option value="Tamamlandı">Tamamlandı</Option>
+                                    <Option value="İptal Edildi">İptal Edildi</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <div style={{ textAlign: 'right', marginTop: 10 }}>
+                        <Button onClick={() => setIsGroupModalOpen(false)} style={{ marginRight: 8 }}>İptal</Button>
+                        <Button type="primary" htmlType="submit">Kaydet</Button>
+                    </div>
+                </Form>
+            </Modal>
         </div>
     );
 };
 
-// Basit form bileşeni (Tarih/Saat seçimi için)
+// Basit form bileşeni
 const FormLayout = () => (
     <div style={{marginTop: 20}}>
         <div style={{marginBottom: 10}}>Tarih:</div>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Space, theme, Typography, Badge, Popover, List, Button, Divider } from 'antd';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { 
-    LogoutOutlined, UserOutlined, HomeOutlined, TeamOutlined,
+    LogoutOutlined, UserOutlined, HomeOutlined, TeamOutlined, // TeamOutlined eklendi
     FileSearchOutlined, SolutionOutlined, BellOutlined,
     CheckCircleOutlined, InfoCircleOutlined, SettingOutlined, DownOutlined,
     QuestionCircleOutlined, PhoneOutlined
@@ -39,6 +39,7 @@ const MainLayout = () => {
         if (userStr) {
             setUser(JSON.parse(userStr));
         } else {
+            // Varsayılan olarak admin, test için
             setUser({ name: 'Admin Kullanıcı', role: 'admin' });
         }
     }, [navigate]);
@@ -49,9 +50,10 @@ const MainLayout = () => {
     };
 
     const getMenuItems = () => {
-        const role = user?.role;
+        const role = user?.role?.toLowerCase(); // Rol kontrolünü güvenli hale getirelim
         const items = [];
         
+        // 1. Ana Sayfa (Herkes görür)
         items.push({ 
             key: '/', 
             icon: <HomeOutlined />, 
@@ -59,6 +61,17 @@ const MainLayout = () => {
             style: { fontSize: '14px', fontWeight: 500, fontFamily: BOUN_FONT }
         });
 
+        // 2. Grup Çalışmaları (Terapist ve Admin görür) - YENİ EKLENDİ
+        if (role === 'admin' || role === 'therapist' || role === 'terapist') {
+            items.push({ 
+                key: '/therapist/groups', 
+                icon: <TeamOutlined />, 
+                label: <Link to="/therapist/groups">Grup Çalışmaları</Link>,
+                style: { fontSize: '14px', fontWeight: 500, fontFamily: BOUN_FONT }
+            });
+        }
+
+        // 3. Yönetim Menüleri (Sadece Admin)
         if (role === 'admin') {
             items.push(
                 { 
@@ -178,7 +191,7 @@ const MainLayout = () => {
 
                 {/* Sağ Taraf */}
                 <Space size={20}>
-                    <Popover content={notificationContent} trigger="click" placement="bottomRight" overlayInnerStyle={{ padding: 0 }} arrow={false}>
+                    <Popover content={notificationContent} trigger="click" placement="bottomRight" styles={{ padding: 0 }} arrow={false}>
                         <Badge count={3} offset={[-2, 2]} size="small" color={BOUN_LIGHT_BLUE}>
                             <Button 
                                 type="text" 
