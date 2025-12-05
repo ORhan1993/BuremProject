@@ -2,6 +2,7 @@
 using Burem.API.DTOs;
 using Burem.API.Helpers;
 using Burem.Data.Models;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
@@ -102,6 +103,27 @@ namespace Burem.API.Concrete
             }
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        // Sekreterin atama yapması gereken (Danışmanı atanmamış) başvuruları getirir
+        public async Task<List<PendingSessionDto>> GetPendingSessionsAsync()
+        {
+            var sessions = await _context.Sessions
+                .Include(s => s.Student)
+                // AdvisorID 0 veya NULL ise atama bekliyordur + Arşivlenmemiş olmalı
+                .Where(s => (s.AdvisorId == 0 || s.AdvisorId == null) && s.IsArchived == false)
+                .OrderBy(s => s.SessionDate)
+                .ToListAsync();
+
+            // DTO'ya çevirme (Mapping)
+            return sessions.Select(s => new PendingSessionDto
+            {
+                Id = s.Id,
+                // İsimler şifreliyse çözüyoruz, değilse direkt alıyoruz
+                Name = $"{CryptoHelper.Decrypt(s.Student.FirstName)} {CryptoHelper.Decrypt(s.Student.LastName)}",
+                Department = s.Student.Department,
+                RequestDate = s.SessionDate.ToString("dd.MM.yyyy")
+            }).ToList();
         }
     }
 }

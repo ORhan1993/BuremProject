@@ -1,4 +1,6 @@
-﻿using Burem.API.Controllers; // SearchCriteriaDto için (veya DTO namespace'i)
+﻿using Burem.API.Concrete;
+using Burem.API.Controllers; // SearchCriteriaDto için (veya DTO namespace'i)
+using Burem.API.DTOs;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -14,5 +16,7 @@ namespace Burem.API.Abstract
 
         // --- YENİ EKLENECEK SATIR ---
         Task<object> GetSessionDetailAsync(int sessionId);
+
+        Task<ServiceResult> ApplyStudentAsync(StudentApplicationDto dto);
     }
 }

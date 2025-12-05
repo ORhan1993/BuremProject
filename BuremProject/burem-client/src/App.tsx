@@ -69,7 +69,8 @@ function App() {
                     <StudentDashboard />
                 </ProtectedRoute>
             } />
-            <Route path="/student/basvuru" element={
+           {/* DÜZELTME 1: Rota ismini '/student/form' yaptık (Login sayfasıyla eşleşmesi için) */}
+            <Route path="/student/form" element={
                 <ProtectedRoute allowedRoles={['student']}>
                     <StudentForm />
                 </ProtectedRoute>
@@ -132,6 +133,13 @@ function App() {
                     <TherapistDashboard />
                 </ProtectedRoute>
             } />
+
+            {/* DÜZELTME 2: Grup çalışmaları rotası ProtectedRoute içine alındı */}
+            <Route path="/therapist/groups" element={
+                <ProtectedRoute allowedRoles={['therapist', 'admin']}>
+                    <GroupStudiesPage />
+                </ProtectedRoute>
+            } />
             
             <Route path="/secretary" element={
                 <ProtectedRoute allowedRoles={['secretary']}>
@@ -143,7 +151,7 @@ function App() {
         {/* 4. HATALI URL YAKALAMA */}
         <Route path="*" element={<Navigate to="/login" replace />} />
 
-        <Route path="/therapist/groups" element={<GroupStudiesPage />} />
+        
     </Routes>
   );
 }

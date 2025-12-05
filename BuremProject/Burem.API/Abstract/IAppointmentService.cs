@@ -11,5 +11,8 @@ namespace Burem.API.Abstract
 
         // Randevu oluşturma işlemi
         Task<ServiceResultDto> CreateAppointmentAsync(CreateAppointmentDto dto);
+
+        // YENİ: Terapist takvimi
+        Task<List<TherapistDashboardDto>> GetTherapistScheduleAsync(int therapistId);
     }
 }

@@ -38,5 +38,12 @@ namespace Burem.API.Controllers
 
             return Ok(new { message = result.Message });
         }
+
+        [HttpGet("TherapistSchedule/{id}")]
+        public async Task<IActionResult> GetTherapistSchedule(int id)
+        {
+            var result = await _appointmentService.GetTherapistScheduleAsync(id);
+            return Ok(result);
+        }
     }
 }

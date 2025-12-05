@@ -3,6 +3,7 @@ using Burem.API.DTOs;
 using Burem.API.Helpers;
 using Burem.Data.Enums;   // Enum'lar burada
 using Burem.Data.Models;  // Entity'ler burada
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -280,6 +281,40 @@ namespace Burem.API.Concrete
             {
                 return new ServiceResultDto { IsSuccess = false, Message = "Hata: " + ex.Message };
             }
+        }
+
+
+        // TERAPİST TAKVİMİ
+        public async Task<List<TherapistDashboardDto>> GetTherapistScheduleAsync(int therapistId)
+        {
+            var appointments = await _context.Appointments
+                .Include(a => a.User)     // Öğrenci (User tablosundan)
+                .Include(a => a.Session)  // Seans detayı (Kaçıncı seans bilgisi için)
+                .Where(a => a.TherapistId == therapistId)
+                .OrderBy(a => a.AppointmentDate)
+                .ToListAsync();
+
+            return appointments.Select(a => new TherapistDashboardDto
+            {
+                Id = a.Id,
+                Date = a.AppointmentDate.ToString("dd.MM.yyyy"),
+                Time = a.AppointmentDate.ToString("HH:mm"),
+
+                // Öğrenci Adı (Şifreli ise Decrypt edin)
+                StudentName = a.User != null
+                    ? $"{CryptoHelper.Decrypt(a.User.FirstName)} {CryptoHelper.Decrypt(a.User.LastName)}"
+                    : "Bilinmeyen Danışan",
+
+                StudentId = a.User?.UserName ?? "-",
+                Type = a.AppointmentType,
+
+                // Frontend Badge durumu için mapping
+                Status = a.Status == AppointmentStatus.Completed ? "completed" :
+                         a.Status == AppointmentStatus.Cancelled ? "cancelled" : "active",
+
+                Note = a.Session?.TherapistNotes ?? "", // Önceki notlar varsa
+                CurrentSessionCount = a.Session?.SessionNumber ?? 1
+            }).ToList();
         }
     }
 }

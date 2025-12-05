@@ -55,6 +55,20 @@ namespace Burem.API.Controllers
 
             return Ok(result);
         }
+
+        [HttpPost("Apply")]
+        public async Task<IActionResult> Apply([FromBody] StudentApplicationDto application)
+        {
+            if (application == null) return BadRequest("Baþvuru verisi boþ olamaz.");
+
+            var result = await _studentService.ApplyStudentAsync(application);
+
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
     }
 
 

@@ -45,5 +45,14 @@ namespace Burem.API.Controllers
 
             return Ok(new { message = "Başvuru başarıyla güncellendi." });
         }
+
+        [HttpGet("pending")]
+        public async Task<IActionResult> GetPending()
+        {
+            var result = await _sessionService.GetPendingSessionsAsync();
+            return Ok(result);
+        }
+
+
     }
 }

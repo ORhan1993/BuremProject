@@ -1,107 +1,92 @@
-import { useState } from 'react';
-import { Form, Input, Button, Layout, Typography, message, Card } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import React from 'react';
+import { Button, Card, Space, Typography, Divider } from 'antd';
+import { UserOutlined, LockOutlined, TeamOutlined, SolutionOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
-const { Content, Footer } = Layout;
 const { Title, Text } = Typography;
 
-// Renk Sabiti
-const BOGAZICI_BLUE = '#1B5583';
-
 const LoginPage = () => {
-    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
-    const onFinish = (values: any) => {
-        setLoading(true);
+    const handleLogin = (role: string) => {
+        let userData;
+
+        switch(role) {
+            // --- VERİTABANINIZDAKİ GERÇEK ÖĞRENCİ ---
+            case 'test-student':
+                userData = { 
+                    id: 1473, // DB'deki ID
+                    name: 'testtttt test', // DB'deki Ad Soyad
+                    role: 'student', 
+                    email: 'orhan.bozgeyik@bogazici.edu.tr', 
+                    studentNo: '1000100100' // DB'deki Öğrenci No
+                };
+                break;
+            // ----------------------------------------
+            case 'secretary':
+                userData = { id: 50, name: 'Zeynep Sekreter', role: 'secretary' };
+                break;
+            case 'therapist':
+                userData = { id: 1, name: 'Dr. Ali Yılmaz', role: 'therapist' };
+                break;
+            case 'admin':
+                userData = { id: 100, name: 'Sistem Yöneticisi', role: 'admin' };
+                break;
+            default:
+                return;
+        }
+
+        localStorage.setItem('user', JSON.stringify(userData));
         
-        // Simüle edilmiş giriş (Gerçekte API'ye gidecek)
-        setTimeout(() => {
-            const { username, password } = values;
-
-            let userData = null;
-
-            // --- ROL TANIMLAMALARI ---
-            if (username === 'admin' && password === 'admin') {
-                userData = { role: 'admin', name: 'Sistem Yöneticisi' };
-            } 
-            else if (username === 'ogr' && password === '123') {
-                userData = { role: 'student', name: 'Ali Yılmaz', studentNo: '2022001' };
-            }
-            else if (username === 'terapist' && password === '123') {
-                userData = { role: 'therapist', name: 'Dr. Ayşe Kaya' };
-            }
-            else if (username === 'sekreter' && password === '123') {
-                userData = { role: 'secretary', name: 'Fatma Demir' };
-            }
-
-            if (userData) {
-                message.success(`Hoş geldiniz, ${userData.name}`);
-                localStorage.setItem('user', JSON.stringify(userData));
-                
-                // Yönlendirme mantığı
-                if (userData.role === 'admin') navigate('/admin');
-                else if (userData.role === 'student') {
-                     navigate('/student'); // <--- ESKİ KOD (Dashboard'a gidiyordu)
-                    //navigate('/evaluation-form'); // <--- YENİ KOD (Test için form sayfasına gider)
-                }
-                else if (userData.role === 'therapist') navigate('/therapist');
-                else if (userData.role === 'secretary') navigate('/secretary');
-            } else {
-                message.error('Kullanıcı adı veya şifre hatalı!');
-            }
-            setLoading(false);
-        }, 800);
+        // Role göre yönlendirme
+        if (role === 'test-student') navigate('/student/form');
+        else if (role === 'secretary') navigate('/admin', { state: { targetTab: 'secretary-view' } });
+        else if (role === 'therapist') navigate('/admin', { state: { targetTab: 'therapist-view' } });
+        else navigate('/admin');
     };
 
     return (
-        <Layout style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%)' }}>
-            <Content style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
-                
-                <Card 
-                    style={{ width: 420, borderRadius: 16, boxShadow: '0 10px 25px rgba(0,0,0,0.08)' }} 
-                    styles={{ padding: 40 }}
-                >
-                    <div style={{ textAlign: 'center', marginBottom: 30 }}>
-                        <div style={{ 
-                            width: 70, height: 70, background: BOGAZICI_BLUE, borderRadius: '50%', 
-                            margin: '0 auto 15px', display: 'flex', justifyContent: 'center', alignItems: 'center', 
-                            fontSize: 28, color: 'white', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(27, 85, 131, 0.3)' 
-                        }}>B</div>
-                        <Title level={3} style={{ color: BOGAZICI_BLUE, marginBottom: 5 }}>BÜREM</Title>
-                        <Text type="secondary">Öğrenci Kayıt ve Danışmanlık Sistemi</Text>
+        <div style={{ 
+            display: 'flex', justifyContent: 'center', alignItems: 'center', 
+            height: '100vh', background: '#f0f2f5', fontFamily: 'Helvetica, Arial, sans-serif' 
+        }}>
+            <Card style={{ width: 400, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+                <div style={{ marginBottom: 30 }}>
+                    <div style={{ 
+                        width: 60, height: 60, background: '#1e4a8b', borderRadius: '50%', 
+                        display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 15px' 
+                    }}>
+                        <LockOutlined style={{ fontSize: 30, color: 'white' }} />
                     </div>
+                    <Title level={3} style={{ color: '#1e4a8b', margin: 0 }}>BÜREM Giriş</Title>
+                    <Text type="secondary">Lütfen giriş yapmak için rolünüzü seçiniz.</Text>
+                </div>
 
-                    <Form name="login_form" onFinish={onFinish} size="large" layout="vertical">
-                        <Form.Item name="username" rules={[{ required: true, message: 'Kullanıcı adı giriniz!' }]}>
-                            <Input prefix={<UserOutlined style={{ color: '#bfbfbf' }} />} placeholder="Kullanıcı Adı" />
-                        </Form.Item>
-                        <Form.Item name="password" rules={[{ required: true, message: 'Şifre giriniz!' }]}>
-                            <Input.Password prefix={<LockOutlined style={{ color: '#bfbfbf' }} />} placeholder="Şifre" />
-                        </Form.Item>
-                        <Form.Item>
-                            <Button type="primary" htmlType="submit" block loading={loading} 
-                                style={{ background: BOGAZICI_BLUE, borderColor: BOGAZICI_BLUE, height: 45, fontWeight: 500 }}>
-                                Giriş Yap
-                            </Button>
-                        </Form.Item>
-                    </Form>
+                <Space direction="vertical" style={{ width: '100%' }} size="large">
                     
-                    <div style={{ marginTop: 20, padding: 15, background: '#f9f9f9', borderRadius: 8, fontSize: 12, color: '#666' }}>
-                        <strong>Test Hesapları:</strong><br/>
-                        Admin: admin / admin<br/>
-                        Öğrenci: ogr / 123<br/>
-                        Terapist: terapist / 123<br/>
-                        Sekreter: sekreter / 123
-                    </div>
-                </Card>
+                    {/* ÖZEL TEST BUTONU */}
+                    <Button 
+                        type="primary" 
+                        size="large" 
+                        block 
+                        icon={<UserOutlined />} 
+                        onClick={() => handleLogin('test-student')}
+                        style={{ backgroundColor: '#722ed1', borderColor: '#722ed1', height: 50 }}
+                    >
+                        Öğrenci Girişi (Test Verisi ile)
+                    </Button>
 
-            </Content>
-            <Footer style={{ textAlign: 'center', color: '#999', background: 'transparent' }}>
-                Boğaziçi Üniversitesi ©2025
-            </Footer>
-        </Layout>
+                    <Divider plain>Personel Girişi</Divider>
+
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <Button block size="large" icon={<SolutionOutlined />} onClick={() => handleLogin('secretary')}>Sekreter</Button>
+                        <Button block size="large" icon={<TeamOutlined />} onClick={() => handleLogin('therapist')}>Terapist</Button>
+                    </div>
+                    
+                    <Button type="dashed" block onClick={() => handleLogin('admin')}>Yönetici (Admin)</Button>
+                </Space>
+            </Card>
+        </div>
     );
 };
 

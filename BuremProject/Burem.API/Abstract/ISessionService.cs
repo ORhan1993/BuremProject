@@ -15,5 +15,8 @@ namespace Burem.API.Abstract
         /// Başvuru formundaki cevapları günceller.
         /// </summary>
         Task<bool> UpdateSessionAnswersAsync(int sessionId, List<UpdateSessionAnswersDto> updatedAnswers);
+
+        // YENİ: Sekreter için bekleyenler
+        Task<List<PendingSessionDto>> GetPendingSessionsAsync();
     }
 }

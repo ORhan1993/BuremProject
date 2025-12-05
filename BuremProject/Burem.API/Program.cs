@@ -48,6 +48,8 @@ builder.Services.AddScoped<IStudentService, StudentConcrete>();
 builder.Services.AddScoped<ISessionService, SessionConcrete>();
 builder.Services.AddScoped<ISecurityService, SecurityConcrete>();
 builder.Services.AddScoped<IAppointmentService, AppointmentConcrete>();
+builder.Services.AddScoped<IFormService, FormConcrete>();
+
 
 var app = builder.Build();
 

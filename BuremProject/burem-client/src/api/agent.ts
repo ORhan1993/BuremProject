@@ -1,11 +1,10 @@
 import axios from 'axios';
 import type { AxiosResponse } from 'axios';
 
-// Backend URL'nizi buraya girin (Port numarasını kontrol edin)
+// Backend URL
 axios.defaults.baseURL = 'http://localhost:5221/api';
 
-// --- TİP TANIMLARI (INTERFACES) ---
-
+// --- TİP TANIMLARI ---
 export interface SiteContent { key: string; value: string; }
 export interface QuestionOption { id?: number; optionTitle: string; optionValue: string; sortOrder: number; }
 export interface Question { id: number; sortOrder: number; questionTitle: string; questionType: number; questionGroup: number; appForm: number; options: QuestionOption[]; }
@@ -47,14 +46,14 @@ export interface SessionDetailDTO {
     answers: SessionAnswer[];
 }
 
-// Öğrenci Profili (Detay Sayfası İçin)
+// Öğrenci Profili
 export interface StudentSession {
     id: number;
     sessionDate: string;
     advisorId: number;
     isArchived: boolean;
     hasFeedback: boolean;
-    feedbackSessionId?: number; // Varsa ID
+    feedbackSessionId?: number;
 }
 
 export interface StudentProfileDetail {
@@ -62,47 +61,38 @@ export interface StudentProfileDetail {
     studentNo: string;
     firstName: string;
     lastName: string;
-    // Aşağıdaki alanlar backend'den string (dönüştürülmüş) olarak gelecek
     birthYear: string;
     gender: string;
     lifestyle: string;
     mobilePhone: string;
     email: string;
-    // İletişim
     contactDegree: string;
     contactPerson: string;
     contactPhone: string;
-    // Akademik
     faculty: string;
     department: string;
     semester: string;
     academicLevel: string;
     isScholar: string;
-    // Aile
     isMotherAlive: string;
     isFatherAlive: string;
     parentMarriage: string;
-    // Başvuru Geçmişi
     sessions: StudentSession[];
 }
 
 export interface SearchCriteria { studentNo?: string; firstName?: string; lastName?: string; }
 
-
-
-
 // --- API YARDIMCILARI ---
 const responseBody = <T>(response: AxiosResponse<T>) => response.data;
 
-const requests = {
+// Export'a ekledik ki 'agent.Requests.get' diyebilelim (İsteğe bağlı, aşağıda servisleri kullandık)
+export const requests = {
     get: <T>(url: string) => axios.get<T>(url).then(responseBody),
     post: <T>(url: string, body: {}) => axios.post<T>(url, body).then(responseBody),
     put: <T>(url: string, body: {}) => axios.put<T>(url, body).then(responseBody),
     del: <T>(url: string) => axios.delete<T>(url).then(responseBody),
-    // Dosya indirmek için blob tipi
     download: (url: string, body: {}) => axios.post(url, body, { responseType: 'blob' })
 };
-
 
 // --- SERVİSLER ---
 
@@ -130,21 +120,16 @@ const Therapists = {
 };
 
 const Students = {
-    // ID ile detay getir (Backend'deki StudentsController.GetStudentById metodunu çağırır)
     getById: (id: any) => requests.get<StudentProfileDetail>(`/Students/${id}`),
-    
-    // Gelişmiş Arama
     searchAdvanced: (criteria: any) => requests.post<StudentProfileDetail[]>('/Students/search', criteria),
+    getByNo: (no: string) => requests.post<StudentProfileDetail[]>('/Students/search', { studentNo: no }).then(res => res[0]),
     
-    // Numara ile tekil arama (Basit arama)
-    getByNo: (no: string) => requests.post<StudentProfileDetail[]>('/Students/search', { studentNo: no }).then(res => res[0])
+    // --- EKLENEN METOD: BAŞVURU GÖNDERME ---
+    apply: (payload: any) => requests.post('/Students/Apply', payload)
 };
 
 const Sessions = {
-    // Başvuru Detayı (Backend'deki SessionsController.GetSessionDetail)
     getById: (id: number) => requests.get<SessionDetailDTO>(`/Sessions/${id}`),
-    
-    // Başvuru Güncelleme
     update: (id: number, data: any) => requests.put(`/Sessions/${id}`, data)
 };
 
@@ -172,6 +157,8 @@ const Groups = {
     create: (data: any) => requests.post('/Groups/Create', data)
 };
 
+// Ana nesneye 'Requests' özelliğini de ekleyebiliriz ama 
+// en temizi servisleri (Students.apply vb.) kullanmaktır.
 const agent = { 
     Content, 
     Forms, 
@@ -183,7 +170,8 @@ const agent = {
     Export, 
     Appointments,
     Reports,
-    Groups
+    Groups,
+    Requests: requests // Eğer manuel istek atmak isterseniz diye bunu da ekledim.
 };
 
 export default agent;
