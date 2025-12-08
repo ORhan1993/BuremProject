@@ -8,42 +8,50 @@ const { Title, Text } = Typography;
 const LoginPage = () => {
     const navigate = useNavigate();
 
-    const handleLogin = (role: string) => {
-        let userData;
+   const handleLogin = (role: string) => {
+    let userData;
 
-        switch(role) {
-            // --- VERİTABANINIZDAKİ GERÇEK ÖĞRENCİ ---
-            case 'test-student':
-                userData = { 
-                    id: 1473, // DB'deki ID
-                    name: 'testtttt test', // DB'deki Ad Soyad
-                    role: 'student', 
-                    email: 'orhan.bozgeyik@bogazici.edu.tr', 
-                    studentNo: '1000100100' // DB'deki Öğrenci No
-                };
-                break;
-            // ----------------------------------------
-            case 'secretary':
-                userData = { id: 50, name: 'Zeynep Sekreter', role: 'secretary' };
-                break;
-            case 'therapist':
-                userData = { id: 1, name: 'Dr. Ali Yılmaz', role: 'therapist' };
-                break;
-            case 'admin':
-                userData = { id: 100, name: 'Sistem Yöneticisi', role: 'admin' };
-                break;
-            default:
-                return;
-        }
+    switch(role) {
+        case 'test-student':
+            userData = { 
+                id: 1473, 
+                name: 'testtttt test', 
+                role: 'student', 
+                email: 'orhan.bozgeyik@bogazici.edu.tr', 
+                studentNo: '1000100100' 
+            };
+            break;
+        case 'secretary':
+            userData = { id: 50, name: 'Zeynep Sekreter', role: 'secretary' };
+            break;
+        case 'therapist':
+            userData = { id: 1, name: 'Dr. Ali Yılmaz', role: 'therapist' };
+            break;
+        case 'admin':
+            userData = { id: 100, name: 'Sistem Yöneticisi', role: 'admin' };
+            break;
+        default:
+            return;
+    }
 
-        localStorage.setItem('user', JSON.stringify(userData));
-        
-        // Role göre yönlendirme
-        if (role === 'test-student') navigate('/student/form');
-        else if (role === 'secretary') navigate('/admin', { state: { targetTab: 'secretary-view' } });
-        else if (role === 'therapist') navigate('/admin', { state: { targetTab: 'therapist-view' } });
-        else navigate('/admin');
-    };
+    localStorage.setItem('user', JSON.stringify(userData));
+    
+    // --- DÜZELTİLEN KISIM BURASI ---
+    if (role === 'test-student') {
+        navigate('/student/form');
+    } 
+    else if (role === 'secretary') {
+        // ESKİSİ: navigate('/admin', ... ) -> Hatalıydı, admin yetkisi istiyordu.
+        navigate('/secretary'); // DOĞRUSU: Doğrudan sekreter paneline
+    } 
+    else if (role === 'therapist') {
+        // ESKİSİ: navigate('/admin', ... ) -> Hatalıydı.
+        navigate('/therapist'); // DOĞRUSU: Doğrudan terapist paneline
+    } 
+    else {
+        navigate('/admin');
+    }
+};
 
     return (
         <div style={{ 

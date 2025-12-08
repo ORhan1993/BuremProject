@@ -59,13 +59,15 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<BuremDbContext>();
-        // DataSeeder sýnýfýndaki metodu çaðýrýyoruz
-        await DataSeeder.SeedAsync(context);
+
+        // DataSeeder.SeedAsync yerine sadece veritabaný kontrolü yapýyoruz:
+        // Veritabaný yoksa oluþturur, varsa dokunmaz.
+        await context.Database.EnsureCreatedAsync();
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Veritabaný seed edilirken bir hata oluþtu.");
+        logger.LogError(ex, "Veritabaný baþlatýlýrken bir hata oluþtu.");
     }
 }
 

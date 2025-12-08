@@ -22,7 +22,34 @@ export interface DashboardStats {
 
 // Randevu ve Terapist
 export interface TherapistAvailability { id: number; name: string; category: string; currentLoad: number; dailySlots: number; campus: string; workingDays: string[]; }
-export interface AppointmentRequest { sessionId: number; therapistId: number; date: string; time: string; type: string; roomLink: string; }
+
+// --- BU KISIM EKLENDİ (HATA BURADAYDI) ---
+export interface AppointmentDetail {
+    id: number;
+    studentName: string;
+    therapistName: string;
+    date: string;
+    time: string;
+    status: string;
+    type: string;
+}
+
+export interface PendingSession {
+    id: number;
+    name: string;
+    department: string;
+    requestDate: string;
+}
+
+export interface AppointmentRequest { 
+    sessionId: number; 
+    therapistId: number; 
+    appointmentDate: string; 
+    appointmentHour: string; 
+    appointmentType: string; 
+    locationOrLink: string; 
+}
+// ---------------------------------------------
 
 // Başvuru / Seans Detayları
 export interface SessionAnswer {
@@ -85,7 +112,6 @@ export interface SearchCriteria { studentNo?: string; firstName?: string; lastNa
 // --- API YARDIMCILARI ---
 const responseBody = <T>(response: AxiosResponse<T>) => response.data;
 
-// Export'a ekledik ki 'agent.Requests.get' diyebilelim (İsteğe bağlı, aşağıda servisleri kullandık)
 export const requests = {
     get: <T>(url: string) => axios.get<T>(url).then(responseBody),
     post: <T>(url: string, body: {}) => axios.post<T>(url, body).then(responseBody),
@@ -123,14 +149,13 @@ const Students = {
     getById: (id: any) => requests.get<StudentProfileDetail>(`/Students/${id}`),
     searchAdvanced: (criteria: any) => requests.post<StudentProfileDetail[]>('/Students/search', criteria),
     getByNo: (no: string) => requests.post<StudentProfileDetail[]>('/Students/search', { studentNo: no }).then(res => res[0]),
-    
-    // --- EKLENEN METOD: BAŞVURU GÖNDERME ---
     apply: (payload: any) => requests.post('/Students/Apply', payload)
 };
 
 const Sessions = {
     getById: (id: number) => requests.get<SessionDetailDTO>(`/Sessions/${id}`),
-    update: (id: number, data: any) => requests.put(`/Sessions/${id}`, data)
+    update: (id: number, data: any) => requests.put(`/Sessions/${id}`, data),
+    getPending: () => requests.get<PendingSession[]>('/Sessions/pending') // Yeni eklenen metod
 };
 
 const Stats = {
@@ -143,7 +168,8 @@ const Export = {
 
 const Appointments = {
     getAvailableTherapists: (category: string) => requests.get<TherapistAvailability[]>(`/Appointments/AvailableTherapists?category=${category}`),
-    create: (data: AppointmentRequest) => requests.post('/Appointments/Create', data)
+    getAll: () => requests.get<AppointmentDetail[]>('/Appointments/All'), // Yeni eklenen metod
+    create: (data: any) => requests.post('/Appointments/Create', data)
 };
 
 const Reports = {
@@ -157,8 +183,6 @@ const Groups = {
     create: (data: any) => requests.post('/Groups/Create', data)
 };
 
-// Ana nesneye 'Requests' özelliğini de ekleyebiliriz ama 
-// en temizi servisleri (Students.apply vb.) kullanmaktır.
 const agent = { 
     Content, 
     Forms, 
@@ -171,7 +195,7 @@ const agent = {
     Appointments,
     Reports,
     Groups,
-    Requests: requests // Eğer manuel istek atmak isterseniz diye bunu da ekledim.
+    Requests: requests
 };
 
 export default agent;

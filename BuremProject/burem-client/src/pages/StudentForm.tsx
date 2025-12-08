@@ -36,7 +36,7 @@ interface ProfileData {
     scholarship: string; 
     isMotherAlive: string; 
     isFatherAlive: string;
-    parentMarriage: string; // EKLENDİ
+    parentMarriage: string;
 }
 
 // Varsayılan içerik
@@ -57,14 +57,13 @@ function StudentForm() {
   
     const [answers, setAnswers] = useState<Record<string, any>>({});
   
-    // State başlangıç değerleri güncellendi
     const [profileData, setProfileData] = useState<ProfileData>({ 
         studentNo: "2024001", 
         submissionDate: new Date().toLocaleDateString('tr-TR'), 
         firstName: "", lastName: "", birthYear: "", gender: "", lifestyle: "", mobile: "", email: "", 
         contactDegree: "", contactPerson: "", contactPhone: "", faculty: "", department: "", 
         semester: "", academicLevel: "", scholarship: "", 
-        isMotherAlive: "", isFatherAlive: "", parentMarriage: "" // EKLENDİ
+        isMotherAlive: "", isFatherAlive: "", parentMarriage: "" 
     });
   
     const [showAnnouncement, setShowAnnouncement] = useState(false);
@@ -120,7 +119,6 @@ function StudentForm() {
             return { questionId: parseInt(key), value: strValue };
         });
 
-        // Backend DTO ile uyumlu payload
         const payload = {
             ...profileData,
             answers: formattedAnswers 
@@ -152,11 +150,14 @@ function StudentForm() {
 
         switch (typeId) {
             case 1: 
+                // GÜNCELLEME: Seçenekler yan yana (Space wrap)
                 return (
                     <Radio.Group onChange={e => handleAnswerChange(q.id, e.target.value)} value={answers[q.id]}>
-                        <Space direction="vertical">
+                        <Space wrap> 
                             {validOptions.map((opt: any) => (
-                                <Radio key={opt.id} value={opt.optionValue}>{opt.optionTitle || opt.text}</Radio>
+                                <Radio key={opt.id} value={opt.optionValue} style={{marginRight: 16}}>
+                                    {opt.optionTitle || opt.text}
+                                </Radio>
                             ))}
                         </Space>
                     </Radio.Group>
@@ -172,9 +173,16 @@ function StudentForm() {
                     />
                 );
             case 3: 
+                // GÜNCELLEME: Seçenekler yan yana (Space wrap, vertical Row/Col kaldırıldı)
                 return (
                     <Checkbox.Group style={{ width: '100%' }} onChange={(v) => handleAnswerChange(q.id, v)} value={answers[q.id]}>
-                        <Row>{validOptions.map((opt: any) => (<Col span={24} key={opt.id} style={{ marginBottom: 8 }}><Checkbox value={opt.optionValue}>{opt.optionTitle || opt.text}</Checkbox></Col>))}</Row>
+                        <Space wrap>
+                            {validOptions.map((opt: any) => (
+                                <Checkbox key={opt.id} value={opt.optionValue} style={{marginRight: 16}}>
+                                    {opt.optionTitle || opt.text}
+                                </Checkbox>
+                            ))}
+                        </Space>
                     </Checkbox.Group>
                 );
             case 4:
@@ -184,7 +192,7 @@ function StudentForm() {
         }
     };
 
-    const renderDynamicStep = (groupId: number, title: string, description: string) => {
+    const renderDynamicStep = (groupId: number, title: string, description: React.ReactNode) => {
         const groupQuestions = questions
             .filter((q: any) => {
                 const gId = q.questionGroup !== undefined ? q.questionGroup : (q.questionGroupId !== undefined ? q.questionGroupId : q.QuestionGroup);
@@ -197,8 +205,8 @@ function StudentForm() {
         return (
             <div key={groupId}>
                 <div style={{ marginBottom: 20 }}>
-                    <Text strong style={{fontSize:16}}>{title}</Text><br />
-                    <Text type="secondary">{description}</Text>
+                   {title && <><Text strong style={{fontSize:16}}>{title}</Text><br /></>}
+                   <Text style={{color: 'rgba(0, 0, 0, 0.88)'}}>{description}</Text>
                 </div>
                 {groupQuestions.map((q) => (
                     <Card key={q.id} size="small" style={{ marginBottom: 15 }} variant="borderless" className="shadow-sm">
@@ -212,10 +220,10 @@ function StudentForm() {
         );
     };
 
-    // --- PROFİL FORMU (GÜNCELLENDİ: EKSİK SORULAR EKLENDİ) ---
+    // --- PROFİL FORMU ---
     const renderProfileStep = () => (
         <Form layout="vertical" style={{ marginTop: 20 }}>
-            <Alert message="Haftaiçi saat 9:00 ile 17:00 arasında formu doldurabilirsiniz." type="info" showIcon style={{marginBottom: 20}} />
+            <Alert message="Haftaiçi saat 8:00 ile 17:00 arasında formu doldurabilirsiniz." type="info" showIcon style={{marginBottom: 20}} />
             <Row gutter={16}><Col xs={24} md={12}><Form.Item label="Öğrenci No"><Input value={profileData.studentNo} disabled /></Form.Item></Col><Col xs={24} md={12}><Form.Item label="Tarih"><Input value={profileData.submissionDate} disabled /></Form.Item></Col></Row>
             <Row gutter={16}><Col xs={24} md={12}><Form.Item label="Adı" required><Input value={profileData.firstName} onChange={e => handleProfileChange('firstName', e.target.value)} /></Form.Item></Col><Col xs={24} md={12}><Form.Item label="Soyadı" required><Input value={profileData.lastName} onChange={e => handleProfileChange('lastName', e.target.value)} /></Form.Item></Col></Row>
             <Row gutter={16}><Col xs={24} md={12}><Form.Item label="Doğum Yılı" required><Select onChange={v => handleProfileChange('birthYear', v)} value={profileData.birthYear}>{Array.from({length: 40}, (_, i) => new Date().getFullYear() - 17 - i).map(y => <Option key={y} value={y.toString()}>{y}</Option>)}</Select></Form.Item></Col><Col xs={24} md={12}><Form.Item label="Cinsiyet" required><Select onChange={v => handleProfileChange('gender', v)} value={profileData.gender}><Option value="Kadin">Kadın</Option><Option value="Erkek">Erkek</Option></Select></Form.Item></Col></Row>
@@ -230,7 +238,6 @@ function StudentForm() {
             <Row gutter={16}><Col xs={24} md={12}><Form.Item label="Fakülte"><Select onChange={v => handleProfileChange('faculty', v)} value={profileData.faculty}><Option value="Muhendislik">Mühendislik</Option><Option value="FenEdebiyat">Fen-Edebiyat</Option></Select></Form.Item></Col><Col xs={24} md={12}><Form.Item label="Bölüm"><Select onChange={v => handleProfileChange('department', v)} value={profileData.department}><Option value="CENG">Bilgisayar Müh.</Option><Option value="MIS">YBS</Option></Select></Form.Item></Col></Row>
             <Row gutter={16}><Col xs={24} md={8}><Form.Item label="Dönem"><Input value={profileData.semester} onChange={e => handleProfileChange('semester', e.target.value)} /></Form.Item></Col><Col xs={24} md={8}><Form.Item label="Akademik Düzey"><Select onChange={v => handleProfileChange('academicLevel', v)} value={profileData.academicLevel}><Option value="Lisans">Lisans</Option><Option value="Yuksek">Yüksek Lisans</Option></Select></Form.Item></Col><Col xs={24} md={8}><Form.Item label="Burs"><Select onChange={v => handleProfileChange('scholarship', v)} value={profileData.scholarship}><Option value="Var">Var</Option><Option value="Yok">Yok</Option></Select></Form.Item></Col></Row>
             
-            {/* EKLENEN AİLE BİLGİLERİ BÖLÜMÜ [Kaynak 1: StudentBasvuruPage.cshtml Satır 86-94] */}
             <Divider orientation="left">Aile Bilgileri</Divider>
             <Row gutter={16}>
                 <Col xs={24} md={8}>
@@ -265,9 +272,33 @@ function StudentForm() {
 
     const steps = [ 
         { title: '1. Profil', content: renderProfileStep() }, 
-        { title: '2. Genel', content: renderDynamicStep(1, "Genel Değerlendirme", "0= Hiç, 1= Biraz, 2= Oldukça, 3= Çok") }, 
-        { title: '3. Psikolojik', content: renderDynamicStep(2, "Psikolojik Değerlendirme", "Son 2 hafta içinde aşağıdaki sorunlar sizi ne sıklıkla rahatsız etti?") },
-        { title: '4. Ek', content: renderDynamicStep(3, "Ek Değerlendirme", "Kaygı durumunuzu değerlendiren sorular.") } 
+        { 
+            title: '2. Genel', 
+            content: renderDynamicStep(1, "", 
+            <span>
+                Aşağıda belirtilen konularda <b>şu anda</b> ne derecede sıkıntı yaşıyorsunuz? Lütfen hiçbir maddeyi atlamadan işaretleyiniz.
+                <br /><br />
+                0= Hiç 1= Biraz 2= Oldukça 3= Çok
+            </span>) 
+        }, 
+        { 
+            title: '3. Psikolojik', 
+            content: renderDynamicStep(2, "", 
+            <span>
+                <b>Son 2 hafta içerisinde</b> aşağıdaki sorular sizi ne sıklıkla rahatsız etti? Lütfen hiçbir maddeyi atlamadan işaretleyiniz.
+                <br /><br />
+                0= Hiçbir zaman 1= Bazı günler 2= Haftanın günlerinin yarısından fazlasında 3= Hemen hemen her gün
+            </span>) 
+        },
+        { 
+            title: '4. Ek', 
+            content: renderDynamicStep(3, "", 
+            <span>
+                <b>Son 2 hafta içerisinde</b> aşağıdaki sorular sizi ne sıklıkla rahatsız etti? Lütfen hiçbir maddeyi atlamadan işaretleyiniz.
+                <br /><br />
+                0= Hiçbir zaman 1= Bazı günler 2= Haftanın günlerinin yarısından fazlasında 3= Hemen hemen her gün
+            </span>) 
+        } 
     ];
 
     return (

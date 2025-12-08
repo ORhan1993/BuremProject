@@ -110,20 +110,36 @@ namespace Burem.API.Concrete
         {
             var sessions = await _context.Sessions
                 .Include(s => s.Student)
-                // AdvisorID 0 veya NULL ise atama bekliyordur + Arşivlenmemiş olmalı
-                .Where(s => (s.AdvisorId == 0 || s.AdvisorId == null) && s.IsArchived == false)
-                .OrderBy(s => s.SessionDate)
+                .Include(s => s.Advisor)
+                // Danışmanı olmayan (0/null) veya Danışmanı Terapist olmayan (Admin/Sistem) kayıtlar
+                .Where(s => (s.AdvisorId == 0 || s.AdvisorId == null || (s.Advisor != null && s.Advisor.UserType != 4))
+                            && s.IsArchived == false)
+                .OrderByDescending(s => s.SessionDate) // En yeniden eskiye
                 .ToListAsync();
 
-            // DTO'ya çevirme (Mapping)
             return sessions.Select(s => new PendingSessionDto
             {
                 Id = s.Id,
-                // İsimler şifreliyse çözüyoruz, değilse direkt alıyoruz
-                Name = $"{CryptoHelper.Decrypt(s.Student.FirstName)} {CryptoHelper.Decrypt(s.Student.LastName)}",
+                Name = !string.IsNullOrEmpty(s.Student.FirstName)
+                       ? $"{CryptoHelper.Decrypt(s.Student.FirstName)} {CryptoHelper.Decrypt(s.Student.LastName)}"
+                       : "İsimsiz",
+
+                StudentNo = s.Student.StudentNo,
+                Faculty = s.Student.Faculty,
                 Department = s.Student.Department,
-                RequestDate = s.SessionDate.ToString("dd.MM.yyyy")
+                Email = s.Student.Email,
+                Phone = s.Student.MobilePhone ?? "Belirtilmemiş",
+
+                // Sınıf hesabı (Dönem / 2)
+                ClassLevel = s.Student.Semester.HasValue ? Math.Ceiling(s.Student.Semester.Value / 2.0) + ". Sınıf" : "-",
+                Term = s.Student.Semester ?? 0,
+
+                RequestDate = s.SessionDate.ToString("dd.MM.yyyy"),
+                Status = "Atama Bekliyor",
+                ApplicationType = s.SessionNumber == 1 ? "İlk Başvuru" : "Tekrar Başvuru",
+                KvkkApproved = true // Başvuru yapıldıysa onaylanmıştır varsayımı
             }).ToList();
         }
+
     }
 }

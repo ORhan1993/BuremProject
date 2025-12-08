@@ -14,5 +14,8 @@ namespace Burem.API.Abstract
 
         // YENİ: Terapist takvimi
         Task<List<TherapistDashboardDto>> GetTherapistScheduleAsync(int therapistId);
+
+        // Bu satırı interface içine ekleyin
+        Task<List<AppointmentDetailDto>> GetAllAppointmentsAsync();
     }
 }

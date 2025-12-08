@@ -1,235 +1,427 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     Layout, Card, Calendar, Badge, List, Button, Modal, Form, 
-    Select, DatePicker, Input, Row, Col, Tag, Typography, Tooltip, Table, Space
+    Select, DatePicker, Input, Row, Col, Tag, Typography, Table, Space, message, Descriptions, Divider, Alert, Tabs, Statistic, Tooltip
 } from 'antd';
 import { 
     UserAddOutlined, SearchOutlined, CalendarOutlined, 
-    TeamOutlined, FilterOutlined, PlusOutlined 
+    TeamOutlined, ReloadOutlined, FilterOutlined, CheckCircleOutlined, 
+    InfoCircleOutlined, ClockCircleOutlined, HomeOutlined, FileDoneOutlined, BellOutlined
 } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import 'dayjs/locale/tr';
+import type { CellRenderInfo } from 'rc-picker/lib/interface';
+import agent from '../api/agent'; 
 
-dayjs.locale('tr'); // Türkçe takvim
+dayjs.locale('tr');
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-// --- KURUMSAL KİMLİK ---
-const PRIMARY_COLOR = '#1e4a8b'; 
-const SECONDARY_COLOR = '#8cc8ea';
-const BOUN_FONT = 'Helvetica, Arial, sans-serif';
-const CARD_STYLE = { borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: 'none', height: '100%' };
+// --- KURUMSAL RENK PALETİ (Analiz Dokümanı Uyumu) ---
+const COLORS = {
+    primary: '#1e4a8b',    // Boğaziçi Mavisi
+    secondary: '#8cc8ea',  // Açık Mavi
+    success: '#52c41a',    // Yeşil (Onaylı/Atandı)
+    warning: '#faad14',    // Sarı (Bekleyen)
+    danger: '#f5222d',     // Kırmızı (Acil/Dolu)
+    bg: '#f0f2f5'          // Arka Plan
+};
 
-// --- MOCK DATA (Sekreter İçin) ---
-const pendingStudents = [
-    { id: 1, name: 'Canan Yıldız', department: 'Psikoloji', requestDate: '25.11.2025', urgency: 'Yüksek' },
-    { id: 2, name: 'Burak Öz', department: 'İnşaat Müh.', requestDate: '24.11.2025', urgency: 'Normal' },
-    { id: 3, name: 'Elif Su', department: 'Hazırlık', requestDate: '26.11.2025', urgency: 'Düşük' },
-];
+const CARD_STYLE = { borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: 'none', height: '100%' };
 
-const therapistSchedule = [
-    { date: '2025-11-26', type: 'warning', content: 'Ayşe Y. (10:00)' },
-    { date: '2025-11-26', type: 'success', content: 'Mehmet Ö. (14:00)' },
-    { date: '2025-11-27', type: 'warning', content: 'Ayşe Y. (11:00)' },
-    { date: '2025-11-28', type: 'error', content: 'Tüm Dolu' },
-];
+// --- TİP TANIMLARI ---
+interface PendingSession {
+    id: number;
+    name: string;
+    studentNo: string;
+    faculty: string;
+    department: string;
+    email: string;
+    phone: string;
+    classLevel: string;
+    term: number;
+    requestDate: string;
+    status: string;
+    applicationType: string; // "İlk Başvuru", "Tekrar Başvuru"
+    kvkkApproved: boolean;
+}
 
-const allAppointments = [
-    { key: 1, student: 'Ali Yılmaz', therapist: 'Ayşe Yılmaz', date: '26.11.2025', time: '10:00', status: 'Onaylı' },
-    { key: 2, student: 'Veli Can', therapist: 'Mehmet Öz', date: '26.11.2025', time: '14:00', status: 'Tamamlandı' },
-    { key: 3, student: 'Selin K.', therapist: 'Ayşe Yılmaz', date: '27.11.2025', time: '09:00', status: 'Bekliyor' },
-];
+interface AppointmentDetail {
+    id: number;
+    studentName: string;
+    therapistName: string;
+    date: string;
+    time: string;
+    status: string;
+    type: string;
+}
+
+interface TherapistAvailability {
+    id: number;
+    name: string;
+    category: string;
+    currentLoad: number;
+    dailySlots: number;
+    campus: string;
+    workingDays: string[];
+}
 
 const SecretaryDashboard = () => {
+    // --- STATE ---
+    // Analiz : Menü yapısı için Tab state
+    const [activeTab, setActiveTab] = useState('1'); 
+    
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedStudent, setSelectedStudent] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
+    
+    // Veriler
+    const [pendingStudents, setPendingStudents] = useState<PendingSession[]>([]);
+    const [allAppointments, setAllAppointments] = useState<AppointmentDetail[]>([]);
+    const [therapists, setTherapists] = useState<TherapistAvailability[]>([]);
+    
+    // Filtreleme State'leri (Analiz [cite: 92-97])
+    const [searchText, setSearchText] = useState("");
+    const [facultyFilter, setFacultyFilter] = useState<string | null>(null);
+    const [typeFilter, setTypeFilter] = useState<string | null>(null);
+
+    // Seçimler
+    const [selectedStudent, setSelectedStudent] = useState<PendingSession | null>(null);
+    const [selectedTherapistId, setSelectedTherapistId] = useState<number | null>(null);
+    
     const [form] = Form.useForm();
 
-    // Takvim Hücre Render
-    const dateCellRender = (value: Dayjs) => {
-        const listData = therapistSchedule.filter(x => x.date === value.format('YYYY-MM-DD'));
-        return (
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-                {listData.map((item, index) => (
-                    <li key={index}>
-                        <Badge status={item.type as any} text={item.content} style={{fontSize: 10}} />
-                    </li>
-                ))}
-            </ul>
-        );
+    // --- VERİ ÇEKME ---
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            // 1. Bekleyen Başvurular
+            if (agent.Sessions && agent.Sessions.getPending) {
+                const pending = await agent.Sessions.getPending();
+                setPendingStudents(pending);
+            }
+            // 2. Randevular
+            if (agent.Appointments && agent.Appointments.getAll) {
+                const appts = await agent.Appointments.getAll();
+                setAllAppointments(appts);
+            }
+            // 3. Terapistler
+            const tList = await agent.Appointments.getAvailableTherapists("Genel");
+            setTherapists(tList);
+        } catch (error) {
+            console.error(error);
+            message.error("Veri yükleme hatası. Lütfen sunucunun açık olduğundan emin olun.");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleCreateAppointment = (student: any) => {
+    useEffect(() => { loadData(); }, []);
+
+    // --- FİLTRELEME MANTIĞI (Analiz [cite: 92-97]) ---
+    const filteredPending = pendingStudents.filter(student => {
+        const matchesSearch = student.name.toLowerCase().includes(searchText.toLowerCase()) || 
+                              (student.studentNo && student.studentNo.includes(searchText));
+        const matchesFaculty = facultyFilter ? student.faculty === facultyFilter : true;
+        const matchesType = typeFilter ? student.applicationType === typeFilter : true;
+        return matchesSearch && matchesFaculty && matchesType;
+    });
+
+    const handleOpenAssignModal = (student: PendingSession) => {
         setSelectedStudent(student);
+        setSelectedTherapistId(null);
+        form.resetFields();
         setIsModalOpen(true);
     };
 
+    // --- RANDEVU OLUŞTURMA (Analiz [cite: 122-129]) ---
     const handleOk = () => {
-        form.validateFields().then(values => {
-            // --- ANALİZE UYGUN BACKEND PAYLOAD HAZIRLIĞI ---
-            // Sekreter sadece 1. seansı atayabilir.
+        form.validateFields().then(async (values) => {
+            if (!selectedStudent) return;
+            setLoading(true);
+            
+            // SecretaryDashboard.tsx -> handleOk fonksiyonu içine:
+
             const payload = {
-                studentId: selectedStudent?.id,
-                advisorId: values.therapist, 
-                sessionDate: values.date.format('YYYY-MM-DD') + 'T' + values.time,
-                isOnline: values.type === 'online',
-                
-                // --- KRİTİK İŞ KURALLARI ---
-                sessionNumber: 1, // Sabit değer: İlk Görüşme
-                status: 'Planlandı'
+                sessionId: selectedStudent.id,
+                therapistId: values.therapistId,
+                // Tarihi string'e çeviriyoruz. Örn: "2025-11-26"
+                appointmentDate: values.date ? values.date.format('YYYY-MM-DD') : "", 
+                appointmentHour: values.time,
+                appointmentType: values.type,
+                locationOrLink: values.locationOrLink || "BÜREM Ofis",
             };
 
-            console.log("Backend'e gönderilen 1. Seans Kaydı:", payload);
-            // Simülasyon: API çağrısı burada yapılacak (agent.Appointments.create(payload))
-            
-            // Başarılı kabul edip formu kapatıyoruz
-            setIsModalOpen(false);
-            form.resetFields();
+            // Konsola yazdırıp kontrol edelim (F12 -> Console)
+            console.log("Sunucuya Gönderilen Veri:", payload); 
+
+            await agent.Appointments.create(payload);
+
+            try {
+                await agent.Appointments.create(payload);
+                message.success("Randevu oluşturuldu ve öğrenciye e-posta gönderildi.");
+                setIsModalOpen(false);
+                loadData(); // Listeyi güncelle
+                setActiveTab('3'); // "Atanmış Randevular" sekmesine geç
+            } catch (error: any) {
+                // Hata mesajını yakalama
+                const errorMsg = error.response?.data?.message || "Randevu oluşturulamadı (400 Bad Request). Lütfen Backend DTO'sunu kontrol edin.";
+                message.error(errorMsg);
+            } finally {
+                setLoading(false);
+            }
         });
     };
 
-    return (
-        <div style={{ padding: 24, fontFamily: BOUN_FONT, background: '#f0f2f5', minHeight: '100vh' }}>
+    const selectedTherapistDetails = therapists.find(t => t.id === selectedTherapistId);
+
+    // --- EKRAN TASARIMLARI ---
+
+    // 1. Sekme: Yeni Başvurular (Analiz [cite: 90-97])
+    const renderNewApplications = () => (
+        <Card style={CARD_STYLE} title={<span><UserAddOutlined /> Yeni Başvurular Listesi</span>} extra={<Button icon={<ReloadOutlined/>} onClick={loadData}>Yenile</Button>}>
             
-            {/* BAŞLIK */}
-            <div style={{ marginBottom: 24, background: '#fff', padding: 16, borderRadius: 8, borderLeft: `4px solid ${PRIMARY_COLOR}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                    <Title level={3} style={{ margin: 0, color: PRIMARY_COLOR, fontFamily: BOUN_FONT }}>Sekreter Paneli</Title>
-                    <Text type="secondary">Randevu takvimi ve öğrenci bekleme listesi yönetimi.</Text>
-                </div>
-                <Button type="primary" icon={<PlusOutlined />} size="large" style={{backgroundColor: PRIMARY_COLOR}}>Hızlı Randevu</Button>
+            {/* Filtre Barı (Analiz [cite: 92]) */}
+            <div style={{ background: '#fafafa', padding: 15, borderRadius: 6, marginBottom: 15, border: '1px solid #f0f0f0' }}>
+                <Row gutter={16} align="middle">
+                    <Col span={8}>
+                        <Input placeholder="Ad / Soyad / Öğrenci No Ara..." prefix={<SearchOutlined />} onChange={e => setSearchText(e.target.value)} />
+                    </Col>
+                    <Col span={6}>
+                        <Select placeholder="Fakülte Filtrele" allowClear style={{width:'100%'}} onChange={setFacultyFilter}>
+                            <Option value="Eğitim Fakültesi">Eğitim Fakültesi</Option>
+                            <Option value="Fen Edebiyat Fakültesi">Fen Edebiyat Fakültesi</Option>
+                            <Option value="Mühendislik Fakültesi">Mühendislik Fakültesi</Option>
+                            <Option value="İktisadi ve İdari Bilimler">İİBF</Option>
+                        </Select>
+                    </Col>
+                    <Col span={6}>
+                        <Select placeholder="Başvuru Tipi" allowClear style={{width:'100%'}} onChange={setTypeFilter}>
+                            <Option value="İlk Başvuru">İlk Başvuru</Option>
+                            <Option value="Tekrar Başvuru">Tekrar Başvuru</Option>
+                        </Select>
+                    </Col>
+                    <Col span={4} style={{textAlign:'right'}}>
+                        <Tag color="red" style={{fontSize:14, padding:'5px 10px'}}>Bekleyen: {filteredPending.length}</Tag>
+                    </Col>
+                </Row>
             </div>
 
-            <Row gutter={[24, 24]}>
-                {/* SOL KOLON: BEKLEYEN ÖĞRENCİ LİSTESİ (TALEP KUYRUĞU) */}
-                <Col xs={24} lg={8}>
-                    <Card 
-                        title={<span style={{color: PRIMARY_COLOR}}><UserAddOutlined /> Bekleyen Başvurular</span>} 
-                        style={CARD_STYLE}
-                        extra={<Tag color="red">{pendingStudents.length} Bekleyen</Tag>}
-                    >
-                        <List
-                            itemLayout="horizontal"
-                            dataSource={pendingStudents}
-                            renderItem={(item) => (
-                                <List.Item
-                                    actions={[<Button type="link" size="small" onClick={() => handleCreateAppointment(item)}>Randevu Ver</Button>]}
-                                >
-                                    <List.Item.Meta
-                                        avatar={<div style={{width:40, height:40, background: SECONDARY_COLOR, borderRadius: '50%', display:'flex', justifyContent:'center', alignItems:'center', color:'#fff', fontWeight:'bold'}}>{item.name.charAt(0)}</div>}
-                                        title={<Text strong>{item.name}</Text>}
-                                        description={
-                                            <div>
-                                                <div style={{fontSize: 12}}>{item.department}</div>
-                                                <div style={{fontSize: 11, color: '#888'}}>Talep: {item.requestDate}</div>
-                                                {/* Aciliyet bilgisi liste görünümünde kalabilir ama detayda gizlenecek */}
-                                                {item.urgency === 'Yüksek' && <Tag color="red" style={{marginTop: 4}}>Acil</Tag>}
-                                            </div>
-                                        }
-                                    />
-                                </List.Item>
-                            )}
-                        />
-                    </Card>
-                </Col>
+            {/* Başvuru Tablosu (Analiz [cite: 91]) */}
+            <Table 
+                dataSource={filteredPending}
+                rowKey="id"
+                loading={loading}
+                pagination={{pageSize: 8}}
+                columns={[
+                    { title: 'Başvuru No', dataIndex: 'id', width: 100 },
+                    { title: 'Öğrenci Adı', dataIndex: 'name', render: (t,r) => <div><div style={{fontWeight:'bold'}}>{t}</div><div style={{fontSize:11, color:'#888'}}>{r.studentNo}</div></div> },
+                    { title: 'Fakülte', dataIndex: 'faculty' },
+                    { title: 'Tarih', dataIndex: 'requestDate' },
+                    { title: 'Tür', dataIndex: 'applicationType', render: t => <Tag color={t==='İlk Başvuru'?'blue':'orange'}>{t}</Tag> },
+                    { title: 'Durum', dataIndex: 'status', render: t => <Tag color="warning">Atama Bekliyor</Tag> },
+                    { 
+                        title: 'İşlem', key: 'action', 
+                        render: (_, r) => (
+                            <Button type="primary" size="small" onClick={() => handleOpenAssignModal(r)}>
+                                İncele & Ata
+                            </Button>
+                        ) 
+                    }
+                ]}
+            />
+        </Card>
+    );
 
-                {/* SAĞ KOLON: TAKVİM GÖRÜNÜMÜ */}
-                <Col xs={24} lg={16}>
-                    <Card title={<span style={{color: PRIMARY_COLOR}}><CalendarOutlined /> Terapist Doluluk Takvimi</span>} style={CARD_STYLE}>
-                        <Calendar dateCellRender={dateCellRender} fullscreen={false} />
-                    </Card>
-                </Col>
-            </Row>
+    // 2. Sekme: Takvim Görünümü (Analiz [cite: 195])
+    const renderCalendar = () => {
+        const cellRender = (current: Dayjs, info: CellRenderInfo<Dayjs>) => {
+            if (info.type === 'date') {
+                const listData = allAppointments.filter(x => x.date === current.format('DD.MM.YYYY'));
+                return (
+                    <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                        {listData.map((item) => (
+                            <li key={item.id}><Badge status={item.status === 'Completed' ? 'success' : 'processing'} text={item.time} /></li>
+                        ))}
+                    </ul>
+                );
+            }
+            return info.originNode;
+        };
+        return (
+            <Card style={CARD_STYLE} title={<span><CalendarOutlined /> Terapist Genel Takvimi</span>}>
+                <Alert message="Mavi: Planlı Randevular | Yeşil: Tamamlanmış Randevular" type="info" showIcon style={{marginBottom:15}}/>
+                <Calendar cellRender={cellRender} />
+            </Card>
+        );
+    };
 
-            {/* ALT PANEL: RANDEVU LİSTESİ TABLOSU */}
-            <Row style={{ marginTop: 24 }}>
-                <Col span={24}>
-                    <Card title={<span style={{color: PRIMARY_COLOR}}><TeamOutlined /> Tüm Randevu Listesi</span>} style={CARD_STYLE} extra={<Input prefix={<SearchOutlined/>} placeholder="Öğrenci veya Terapist Ara" style={{width: 200}} />}>
-                        <Table 
-                            dataSource={allAppointments}
-                            pagination={{pageSize: 5}}
-                            columns={[
-                                { title: 'Öğrenci', dataIndex: 'student', key: 'student', render: (t) => <b>{t}</b> },
-                                { title: 'Terapist', dataIndex: 'therapist', key: 'therapist' },
-                                { title: 'Tarih', dataIndex: 'date', key: 'date' },
-                                { title: 'Saat', dataIndex: 'time', key: 'time' },
-                                { title: 'Durum', dataIndex: 'status', key: 'status', render: (t) => <Tag color={t==='Onaylı'?'green':(t==='Bekliyor'?'orange':'default')}>{t}</Tag> },
-                                { title: 'İşlem', key: 'action', render: () => <Space><Button size="small">Düzenle</Button><Button size="small" danger>İptal</Button></Space> }
-                            ]}
-                        />
-                    </Card>
-                </Col>
-            </Row>
+    // 3. Sekme: Atanmış Randevular (Analiz [cite: 86])
+    const renderAppointments = () => (
+        <Card style={CARD_STYLE} title={<span><TeamOutlined /> Atanmış Randevular Listesi</span>}>
+            <Table 
+                dataSource={allAppointments}
+                rowKey="id"
+                columns={[
+                    { title: 'Tarih', dataIndex: 'date' },
+                    { title: 'Saat', dataIndex: 'time' },
+                    { title: 'Öğrenci', dataIndex: 'studentName', render: t => <b>{t}</b> },
+                    { title: 'Terapist', dataIndex: 'therapistName' },
+                    { title: 'Tür', dataIndex: 'type', render: t => t === 'Online' ? <Tag color="cyan">Online</Tag> : <Tag color="purple">Yüz Yüze</Tag> },
+                    { title: 'Durum', dataIndex: 'status', render: t => <Tag color={t==='Completed'?'green':'processing'}>{t}</Tag> }
+                ]}
+            />
+        </Card>
+    );
 
-            {/* RANDEVU OLUŞTURMA MODALI - GÜNCELLENDİ */}
+    return (
+        <div style={{ padding: 24, fontFamily: 'Helvetica, Arial, sans-serif', background: COLORS.bg, minHeight: '100vh' }}>
+            
+            {/* ÜST BAR (Analiz [cite: 135]) */}
+            <div style={{ marginBottom: 24, background: '#fff', padding: '16px 24px', borderRadius: 8, borderLeft: `5px solid ${COLORS.primary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+                <div>
+                    <Title level={3} style={{ margin: 0, color: COLORS.primary }}>Sekreter Paneli</Title>
+                    <Text type="secondary">Randevu yönlendirme ve başvuru yönetim ekranı.</Text>
+                </div>
+                <div style={{textAlign: 'right'}}>
+                    <Space size="large">
+                        <Badge dot><BellOutlined style={{fontSize:20, cursor:'pointer'}}/></Badge>
+                        <Text strong style={{fontSize:16}}>{dayjs().format('DD MMMM YYYY, dddd')}</Text>
+                    </Space>
+                </div>
+            </div>
+
+            {/* SEKMELER (Analiz  Sol Menü İşlevi) */}
+            <Tabs 
+                activeKey={activeTab} 
+                onChange={setActiveTab} 
+                type="card"
+                size="large"
+                style={{marginBottom: 20}}
+                items={[
+                    { key: '1', label: <span><UserAddOutlined /> Yeni Başvurular <Badge count={pendingStudents.length} style={{marginLeft:5, backgroundColor: COLORS.danger}} /></span>, children: renderNewApplications() },
+                    { key: '2', label: <span><ClockCircleOutlined /> Atama Bekleyenler</span>, children: renderNewApplications() }, // Aynı ekranı kullanır
+                    { key: '3', label: <span><TeamOutlined /> Atanmış Randevular</span>, children: renderAppointments() },
+                    { key: '4', label: <span><CalendarOutlined /> Terapist Takvimi</span>, children: renderCalendar() },
+                    { key: '5', label: <span><FileDoneOutlined /> Arşiv</span>, children: <Card style={CARD_STYLE}><Alert message="Tamamlanan süreçler burada listelenir." type="info"/></Card> }
+                ]}
+            />
+
+            {/* --- BAŞVURU İNCELEME VE ATAMA MODALI (Analiz [cite: 98-129]) --- */}
             <Modal
-                title={<span style={{color: PRIMARY_COLOR}}>İlk Görüşme Ataması: {selectedStudent?.name}</span>}
+                title={<div style={{color: COLORS.primary, fontSize: 18, borderBottom:`1px solid ${COLORS.secondary}`, paddingBottom:10}}>Başvuru İnceleme ve Yönlendirme</div>}
                 open={isModalOpen}
+                confirmLoading={loading}
                 onCancel={() => setIsModalOpen(false)}
                 onOk={handleOk}
-                okText="Atamayı Yap ve Mail Gönder"
+                okText="Randevu Oluştur ve Bildir"
                 cancelText="İptal"
-                okButtonProps={{style: {backgroundColor: PRIMARY_COLOR}}}
+                width={850}
+                style={{top: 20}}
             >
                 <Form form={form} layout="vertical">
-                    {/* İŞ AKIŞI UYARISI */}
-                    <div style={{background: '#fff1f0', padding: 10, borderRadius: 6, marginBottom: 15, border: '1px solid #ffa39e'}}>
-                        <Text type="danger" strong style={{fontSize: 12}}>⚠️ DİKKAT:</Text>
-                        <Text style={{fontSize: 12, display: 'block', marginTop: 5}}>
-                            Bu işlem öğrenci için sisteme <b>1. Seans</b> kaydını oluşturacak ve öğrenciye otomatik bilgilendirme e-postası gönderecektir.
-                        </Text>
+                    
+                    {/* ÖĞRENCİ BİLGİLERİ KARTI (Analiz [cite: 100-108]) */}
+                    <div style={{background: '#f9fcff', padding: 20, borderRadius: 8, marginBottom: 20, border: `1px solid ${COLORS.secondary}`}}>
+                        <Descriptions 
+                            title={<span style={{color: COLORS.primary}}>📌 Öğrenci Bilgileri Kartı</span>} 
+                            bordered 
+                            size="small" 
+                            column={2} 
+                            styles={{ label: { fontWeight: 'bold', width: '150px' } }}
+                        >
+                            <Descriptions.Item label="Ad Soyad">{selectedStudent?.name}</Descriptions.Item>
+                            <Descriptions.Item label="Öğrenci No">{selectedStudent?.studentNo}</Descriptions.Item>
+                            <Descriptions.Item label="Fakülte/Bölüm">{selectedStudent?.faculty} / {selectedStudent?.department}</Descriptions.Item>
+                            <Descriptions.Item label="Sınıf/Dönem">{selectedStudent?.classLevel} / {selectedStudent?.term}. Dönem</Descriptions.Item>
+                            <Descriptions.Item label="Telefon">{selectedStudent?.phone}</Descriptions.Item>
+                            <Descriptions.Item label="E-posta">{selectedStudent?.email}</Descriptions.Item>
+                            <Descriptions.Item label="KVKK & Onam">
+                                {selectedStudent?.kvkkApproved ? <Tag icon={<CheckCircleOutlined />} color="success">Onaylı</Tag> : <Tag color="red">Onaysız</Tag>}
+                            </Descriptions.Item>
+                        </Descriptions>
                     </div>
 
-                    {/* KISITLANMIŞ ÖĞRENCİ BİLGİLERİ (KVKK GEREĞİ ÖLÇEKLER GİZLİ) */}
-                    <div style={{background: '#f4f8fc', padding: 10, borderRadius: 6, marginBottom: 15}}>
-                        <Text type="secondary" style={{fontSize: 12}}>Öğrenci Bilgileri:</Text>
-                        <div><b>Bölüm:</b> {selectedStudent?.department}</div>
-                        <div><b>Başvuru Tarihi:</b> {selectedStudent?.requestDate}</div>
-                    </div>
+                    <Divider orientation="left" style={{color: COLORS.primary, borderColor: COLORS.primary}}>Terapiste Yönlendir</Divider>
 
-                    <Row gutter={16}>
+                    {/* ADIM 1: TERAPİST SEÇİMİ (Analiz [cite: 111-119]) */}
+                    <Row gutter={24}>
                         <Col span={12}>
-                            <Form.Item name="therapist" label="Terapist Seçimi" rules={[{required:true, message: 'Lütfen bir terapist seçin'}]}>
-                                <Select placeholder="Seçiniz">
-                                    <Option value="ayse">Ayşe Yılmaz (Kuzey)</Option>
-                                    <Option value="mehmet">Mehmet Öz (Güney)</Option>
+                            <Form.Item name="therapistId" label="Adım 1: Terapist Seçimi" rules={[{required:true, message:'Zorunlu'}]}>
+                                <Select 
+                                    placeholder="Uzman Seçiniz" 
+                                    loading={loading}
+                                    onChange={(val) => setSelectedTherapistId(val)}
+                                    size="large"
+                                >
+                                    {therapists.map(t => (
+                                        <Option key={t.id} value={t.id}>
+                                            {t.name} ({t.category})
+                                        </Option>
+                                    ))}
                                 </Select>
                             </Form.Item>
+                            
+                            {/* TERAPİST DURUM KARTI (Analiz [cite: 118]) */}
+                            {selectedTherapistDetails && (
+                                <div style={{background: '#f6ffed', border: '1px solid #b7eb8f', padding: 12, borderRadius: 6, fontSize: 13, marginBottom: 15}}>
+                                    <div style={{fontWeight: 'bold', color: '#389e0d', marginBottom: 8, display:'flex', alignItems:'center'}}>
+                                        <InfoCircleOutlined style={{marginRight:5}}/> Terapist Müsaitlik Durumu
+                                    </div>
+                                    <Row gutter={[0, 8]}>
+                                        <Col span={12}><HomeOutlined /> <b>Kampüs:</b> {selectedTherapistDetails.campus}</Col>
+                                        <Col span={12}><ClockCircleOutlined /> <b>Boş Slot:</b> {selectedTherapistDetails.dailySlots}</Col>
+                                        <Col span={12}><TeamOutlined /> <b>Aktif Yük:</b> {selectedTherapistDetails.currentLoad} Vaka</Col>
+                                        <Col span={12}><CalendarOutlined /> <b>Günler:</b> {selectedTherapistDetails.workingDays.join(', ')}</Col>
+                                    </Row>
+                                </div>
+                            )}
                         </Col>
+                        
                         <Col span={12}>
-                            <Form.Item name="type" label="Görüşme Tipi" rules={[{required:true, message: 'Görüşme tipi seçiniz'}]}>
-                                <Select placeholder="Seçiniz">
-                                    <Option value="yuzyuze">Yüz Yüze</Option>
-                                    <Option value="online">Online</Option>
+                            <Form.Item name="type" label="Görüşme Türü" rules={[{required:true, message:'Zorunlu'}]}>
+                                <Select placeholder="Seçiniz" size="large">
+                                    <Option value="Yüz Yüze">Yüz Yüze</Option>
+                                    <Option value="Online">Online</Option>
                                 </Select>
                             </Form.Item>
                         </Col>
                     </Row>
                     
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="date" label="Tarih" rules={[{required:true, message: 'Tarih seçiniz'}]}>
-                                <DatePicker style={{width:'100%'}} format="DD.MM.YYYY" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="time" label="Saat" rules={[{required:true, message: 'Saat seçiniz'}]}>
-                                <Select placeholder="Saat">
-                                    <Option value="09:00">09:00</Option>
-                                    <Option value="10:00">10:00</Option>
-                                    <Option value="11:00">11:00</Option>
-                                    <Option value="14:00">14:00</Option>
-                                    <Option value="15:00">15:00</Option>
-                                    <Option value="16:00">16:00</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Form.Item name="note" label="Sekreter Notu">
-                        <Input.TextArea rows={2} placeholder="Terapist için özel not (Öğrenci görmez)..." />
+                    {/* ADIM 2: TARİH VE SAAT (Analiz [cite: 120-121]) */}
+                    <div style={{background: '#fffbe6', padding: 15, borderRadius: 6, border:'1px solid #ffe58f', marginBottom: 15}}>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <Form.Item name="date" label="Adım 2: Tarih Seçimi" rules={[{required:true, message:'Zorunlu'}]} style={{marginBottom:0}}>
+                                    <DatePicker style={{width:'100%'}} format="DD.MM.YYYY" placeholder="Gün Seçiniz" />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item name="time" label="Saat (Slot)" rules={[{required:true, message:'Zorunlu'}]} style={{marginBottom:0}}>
+                                    <Select placeholder="Saat Seçiniz">
+                                        <Option value="09:00">09:00</Option><Option value="10:00">10:00</Option>
+                                        <Option value="11:00">11:00</Option><Option value="13:00">13:00</Option>
+                                        <Option value="14:00">14:00</Option><Option value="15:00">15:00</Option>
+                                        <Option value="16:00">16:00</Option>
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                    </div>
+                    
+                    {/* ADIM 3: YER BİLGİSİ (Analiz [cite: 128]) */}
+                    <Form.Item name="locationOrLink" label="Adım 3: Oda veya Online Link" rules={[{required:true, message:'Zorunlu'}]}>
+                         <Input placeholder="Örn: Kuzey Kampüs Oda 101 veya Zoom Linki" prefix={<HomeOutlined style={{color: 'gray'}}/>} size="large" />
                     </Form.Item>
+
+                    <Alert 
+                        message="Bilgilendirme:" 
+                        description="Kaydet butonuna bastığınızda, sistem öğrenciye otomatik olarak randevu bilgilerini içeren e-posta gönderecek ve terapistin takvimine işleyecektir." 
+                        type="warning" 
+                        showIcon 
+                        style={{fontSize: 12}} 
+                    />
                 </Form>
             </Modal>
         </div>

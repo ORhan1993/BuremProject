@@ -45,5 +45,13 @@ namespace Burem.API.Controllers
             var result = await _appointmentService.GetTherapistScheduleAsync(id);
             return Ok(result);
         }
+
+        // Controller içine bu endpoint'i ekleyin
+        [HttpGet("All")]
+        public async Task<IActionResult> GetAllAppointments()
+        {
+            var result = await _appointmentService.GetAllAppointmentsAsync();
+            return Ok(result);
+        }
     }
 }
