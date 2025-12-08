@@ -77,10 +77,42 @@ function StudentForm() {
     useEffect(() => {
         const loadData = async () => {
             try {
+                // Mevcut içerik ve soru yüklemeleri
                 const contentRes = await agent.Content.getAll();
                 setContentList(contentRes && contentRes.length > 0 ? contentRes : defaultContent);
                 const questionsRes = await agent.Forms.listQuestions();
                 setQuestions(questionsRes || []);
+
+                // --- OTOMATİK DOLDURMA KODU BAŞLANGICI ---
+                
+                // Gerçek senaryoda kullanıcı giriş yaptığında studentNo'yu LocalStorage'dan almalısınız.
+                // Şimdilik test için veya sabit bir değer üzerinden gidiyoruz:
+                // const user = JSON.parse(localStorage.getItem('user') || '{}');
+                // const currentStudentNo = user.username || "9702471";
+                const currentStudentNo = "9702471"; // Test değeri
+
+                const info = await agent.Students.getInfo(currentStudentNo);
+                
+                if (info) {
+                    setProfileData(prev => ({
+                        ...prev,
+                        studentNo: info.studentNo || prev.studentNo,
+                        firstName: info.firstName || "",
+                        lastName: info.lastName || "",
+                        email: info.email || "",
+                        mobile: info.mobilePhone || "",
+                        birthYear: info.birthYear || "", // Dropdown ile eşleşmeli
+                        gender: info.gender || "",       // "Erkek" veya "Kadin"
+                        faculty: info.faculty || "",     // "Muhendislik" vb.
+                        department: info.department || "", // "CENG" vb.
+                        semester: info.semester || "",
+                        academicLevel: info.academicLevel || "", // "Lisans" vb.
+                        // Diğer alanlar boş veya varsayılan kalabilir
+                    }));
+ 
+                }
+                // --- OTOMATİK DOLDURMA KODU BİTİŞİ ---
+
             } catch (err) { 
                 console.error("Veri yükleme hatası:", err);
                 setContentList(defaultContent); 

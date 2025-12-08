@@ -2,6 +2,8 @@
 using Burem.API.DTOs;
 using Burem.API.Helpers;
 using Burem.Data.Models;
+using DocumentFormat.OpenXml.InkML;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -13,6 +15,7 @@ namespace Burem.API.Concrete
     public class StudentConcrete : IStudentService
     {
         private readonly BuremDbContext _context;
+        private readonly IConfiguration _configuration;
 
         // ========================================================================
         // 1. SORU ID'LERİ (Eski Projenizle Birebir Eşleşen Liste)
@@ -49,9 +52,10 @@ namespace Burem.API.Concrete
             { "1", "P1" }, { "2", "P2" }, { "3", "P3" }, { "4", "P4" }, { "99", "Cevap Yok" }
         };
 
-        public StudentConcrete(BuremDbContext context)
+        public StudentConcrete(BuremDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         // ========================================================================
@@ -362,6 +366,89 @@ namespace Burem.API.Concrete
             };
         }
 
-       
+        public async Task<ServiceResult<StudentPreFillDto>> GetStudentInfoFromExternalDbAsync(string studentNo)
+        {
+            try
+            {
+                var dto = new StudentPreFillDto();
+                string connectionString = _configuration.GetConnectionString("StudentConnection");
+
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+
+                    string sql = @"
+                        WITH EnSonDonem AS (
+                            SELECT d.ogrencino, d.donem, ROW_NUMBER() OVER(PARTITION BY d.ogrencino ORDER BY d.donem DESC) AS rn
+                            FROM ogrencidonembilgileri AS d
+                        ),
+                        TekKimlik AS (
+                            SELECT k.tckimlik, k.dogumtarihi, k.ogrencino, ROW_NUMBER() OVER(PARTITION BY k.tckimlik ORDER BY k.dogumtarihi DESC) AS rn
+                            FROM kimlik AS k
+                        )
+                        SELECT
+                            o.ogrencino, o.ad, o.soyad, o.cinsiyet, o.email, o.ceptel, 
+                            o.fakulte, 
+                            o.bolum, 
+                            YEAR(k.dogumtarihi) AS dogum_yil,
+                            ods.toplamdonem,
+                            CASE 
+                                WHEN o.donemdurumu LIKE '%LISANS%' THEN 'LISANS' 
+                                WHEN o.ogrencino LIKE '____7%' OR o.donemdurumu LIKE '%MASTER%' THEN 'MASTER' 
+                                WHEN o.ogrencino LIKE '____8%' OR o.donemdurumu LIKE '%PHD%' THEN 'PHD' 
+                                ELSE o.donemdurumu 
+                            END AS hesaplanan_akademik_duzey
+                        FROM view_ogrenci_temel_bilgileri_arsivli AS o
+                        INNER JOIN TekKimlik AS k ON k.tckimlik = o.tckimlik AND k.rn = 1
+                        LEFT JOIN ogrencidonemsayilari ods ON ods.ogrencino = o.ogrencino
+                        WHERE o.ogrencino = @p0";
+
+                    using (var command = new SqlCommand(sql, connection))
+                    {
+                        command.Parameters.Add(new SqlParameter("@p0", studentNo));
+
+                        using (var reader = await command.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                dto.StudentNo = reader["ogrencino"]?.ToString();
+                                dto.FirstName = reader["ad"]?.ToString();
+                                dto.LastName = reader["soyad"]?.ToString();
+                                dto.Email = reader["email"]?.ToString();
+                                dto.MobilePhone = reader["ceptel"]?.ToString();
+                                dto.BirthYear = reader["dogum_yil"]?.ToString();
+                                dto.Semester = reader["toplamdonem"]?.ToString();
+
+                                string rawGender = reader["cinsiyet"]?.ToString()?.Trim();
+                                dto.Gender = rawGender == "K" ? "Kadin" : (rawGender == "E" ? "Erkek" : "");
+
+                                dto.Faculty = reader["fakulte"]?.ToString();
+                                dto.Department = reader["bolum"]?.ToString();
+
+                                string rawLevel = reader["hesaplanan_akademik_duzey"]?.ToString()?.ToUpperInvariant() ?? "";
+                                if (rawLevel.StartsWith("OZEL")) rawLevel = rawLevel.Replace("OZEL", "");
+
+                                if (rawLevel.Contains("LISANS")) dto.AcademicLevel = "Lisans";
+                                else if (rawLevel.Contains("MASTER") || rawLevel.Contains("YUKSEK")) dto.AcademicLevel = "Yüksek Lisans";
+                                else if (rawLevel.Contains("PHD") || rawLevel.Contains("DOKTORA")) dto.AcademicLevel = "Doktora";
+                                else dto.AcademicLevel = "";
+
+                                // GÜNCELLEME: Burada 'Success' yerine 'SuccessResult' kullanıyoruz
+                                return ServiceResult<StudentPreFillDto>.SuccessResult(dto);
+                            }
+                        }
+                    }
+                }
+
+                // GÜNCELLEME: Burada 'Failure' yerine 'Fail' kullanıyoruz
+                return ServiceResult<StudentPreFillDto>.Fail("Öğrenci bilgisi bulunamadı.");
+            }
+            catch (Exception ex)
+            {
+                // GÜNCELLEME: Burada 'Failure' yerine 'Fail' kullanıyoruz
+                return ServiceResult<StudentPreFillDto>.Fail($"Veri çekme hatası: {ex.Message}");
+            }
+        }
     }
+
 }

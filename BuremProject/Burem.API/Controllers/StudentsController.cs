@@ -69,7 +69,23 @@ namespace Burem.API.Controllers
             }
             return BadRequest(result);
         }
-    }
 
+        [HttpGet("info/{studentNo}")]
+        public async Task<IActionResult> GetStudentInfo(string studentNo)
+        {
+            if (string.IsNullOrEmpty(studentNo))
+                return BadRequest("Öðrenci numarasý boþ olamaz.");
+
+            var result = await _studentService.GetStudentInfoFromExternalDbAsync(studentNo);
+
+            if (!result.Success)
+            {
+                // Loglama servisi varsa burada kullanýlabilir
+                return NotFound(new { message = result.ErrorMessage });
+            }
+
+            return Ok(result.Data);
+        }
+    }
 
 }

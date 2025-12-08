@@ -107,6 +107,20 @@ export interface StudentProfileDetail {
     sessions: StudentSession[];
 }
 
+export interface StudentPreFillInfo {
+    studentNo: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    mobilePhone: string;
+    gender: string;
+    birthYear: string;
+    faculty: string;
+    department: string;
+    semester: string;
+    academicLevel: string;
+}
+
 export interface SearchCriteria { studentNo?: string; firstName?: string; lastName?: string; }
 
 // --- API YARDIMCILARI ---
@@ -149,7 +163,8 @@ const Students = {
     getById: (id: any) => requests.get<StudentProfileDetail>(`/Students/${id}`),
     searchAdvanced: (criteria: any) => requests.post<StudentProfileDetail[]>('/Students/search', criteria),
     getByNo: (no: string) => requests.post<StudentProfileDetail[]>('/Students/search', { studentNo: no }).then(res => res[0]),
-    apply: (payload: any) => requests.post('/Students/Apply', payload)
+    apply: (payload: any) => requests.post('/Students/Apply', payload),
+    getInfo: (studentNo: string) => requests.get<StudentPreFillInfo>(`/Students/info/${studentNo}`)
 };
 
 const Sessions = {
