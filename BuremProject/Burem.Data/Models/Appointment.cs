@@ -9,6 +9,7 @@ namespace Burem.Data.Models
         public int Id { get; set; }
         public int SessionId { get; set; }
         public int TherapistId { get; set; }
+        public virtual Therapist Therapist { get; set; }
         public int? UserId { get; set; }
         public DateTime AppointmentDate { get; set; } // Başlangıç
 
@@ -25,7 +26,8 @@ namespace Burem.Data.Models
         public DateTime CreatedAt { get; set; }
 
         public virtual Session Session { get; set; }
-        public virtual User Therapist { get; set; }
+        public int? CampusId { get; set; }
+        public virtual Campus Campus { get; set; }
         public virtual User? User { get; set; }
     }
 }

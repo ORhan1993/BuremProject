@@ -101,13 +101,12 @@ function StudentForm() {
                         lastName: info.lastName || "",
                         email: info.email || "",
                         mobile: info.mobilePhone || "",
-                        birthYear: info.birthYear || "", // Dropdown ile eşleşmeli
-                        gender: info.gender || "",       // "Erkek" veya "Kadin"
-                        faculty: info.faculty || "",     // "Muhendislik" vb.
-                        department: info.department || "", // "CENG" vb.
+                        birthYear: info.birthYear || "", 
+                        gender: info.gender || "",       
+                        faculty: info.faculty || "",     
+                        department: info.department || "", 
                         semester: info.semester || "",
-                        academicLevel: info.academicLevel || "", // "Lisans" vb.
-                        // Diğer alanlar boş veya varsayılan kalabilir
+                        academicLevel: info.academicLevel || "", 
                     }));
  
                 }
@@ -182,7 +181,6 @@ function StudentForm() {
 
         switch (typeId) {
             case 1: 
-                // GÜNCELLEME: Seçenekler yan yana (Space wrap)
                 return (
                     <Radio.Group onChange={e => handleAnswerChange(q.id, e.target.value)} value={answers[q.id]}>
                         <Space wrap> 
@@ -205,7 +203,6 @@ function StudentForm() {
                     />
                 );
             case 3: 
-                // GÜNCELLEME: Seçenekler yan yana (Space wrap, vertical Row/Col kaldırıldı)
                 return (
                     <Checkbox.Group style={{ width: '100%' }} onChange={(v) => handleAnswerChange(q.id, v)} value={answers[q.id]}>
                         <Space wrap>
@@ -258,7 +255,24 @@ function StudentForm() {
             <Alert message="Haftaiçi saat 8:00 ile 17:00 arasında formu doldurabilirsiniz." type="info" showIcon style={{marginBottom: 20}} />
             <Row gutter={16}><Col xs={24} md={12}><Form.Item label="Öğrenci No"><Input value={profileData.studentNo} disabled /></Form.Item></Col><Col xs={24} md={12}><Form.Item label="Tarih"><Input value={profileData.submissionDate} disabled /></Form.Item></Col></Row>
             <Row gutter={16}><Col xs={24} md={12}><Form.Item label="Adı" required><Input value={profileData.firstName} onChange={e => handleProfileChange('firstName', e.target.value)} /></Form.Item></Col><Col xs={24} md={12}><Form.Item label="Soyadı" required><Input value={profileData.lastName} onChange={e => handleProfileChange('lastName', e.target.value)} /></Form.Item></Col></Row>
-            <Row gutter={16}><Col xs={24} md={12}><Form.Item label="Doğum Yılı" required><Select onChange={v => handleProfileChange('birthYear', v)} value={profileData.birthYear}>{Array.from({length: 40}, (_, i) => new Date().getFullYear() - 17 - i).map(y => <Option key={y} value={y.toString()}>{y}</Option>)}</Select></Form.Item></Col><Col xs={24} md={12}><Form.Item label="Cinsiyet" required><Select onChange={v => handleProfileChange('gender', v)} value={profileData.gender}><Option value="Kadin">Kadın</Option><Option value="Erkek">Erkek</Option></Select></Form.Item></Col></Row>
+            
+            {/* GÜNCELLEME: Doğum Yılı Input Yapıldı */}
+            <Row gutter={16}>
+                <Col xs={24} md={12}>
+                    <Form.Item label="Doğum Yılı" required>
+                        <Input value={profileData.birthYear} onChange={e => handleProfileChange('birthYear', e.target.value)} placeholder="YYYY" />
+                    </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                    <Form.Item label="Cinsiyet" required>
+                        <Select onChange={v => handleProfileChange('gender', v)} value={profileData.gender}>
+                            <Option value="Kadin">Kadın</Option>
+                            <Option value="Erkek">Erkek</Option>
+                        </Select>
+                    </Form.Item>
+                </Col>
+            </Row>
+
             <Form.Item label="Yaşama Biçimi" required><Select onChange={v => handleProfileChange('lifestyle', v)} value={profileData.lifestyle}><Option value="Aile">Ailemle</Option><Option value="Yurt">Yurtta</Option><Option value="OgrenciEvi">Öğrenci Evi</Option></Select></Form.Item>
             <Form.Item label="Telefonu" required><Input value={profileData.mobile} onChange={e => handleProfileChange('mobile', e.target.value)} placeholder="5XX-XXX-XXXX" /></Form.Item>
             <Form.Item label="E-posta Adresi" required><Input value={profileData.email} onChange={e => handleProfileChange('email', e.target.value)} /></Form.Item>
@@ -267,8 +281,38 @@ function StudentForm() {
             <Row gutter={16}><Col xs={24} md={8}><Form.Item label="Yakınlık"><Input value={profileData.contactDegree} onChange={e => handleProfileChange('contactDegree', e.target.value)} /></Form.Item></Col><Col xs={24} md={8}><Form.Item label="Adı Soyadı"><Input value={profileData.contactPerson} onChange={e => handleProfileChange('contactPerson', e.target.value)} /></Form.Item></Col><Col xs={24} md={8}><Form.Item label="Telefonu"><Input value={profileData.contactPhone} onChange={e => handleProfileChange('contactPhone', e.target.value)} /></Form.Item></Col></Row>
             
             <Divider orientation="left">Akademik</Divider>
-            <Row gutter={16}><Col xs={24} md={12}><Form.Item label="Fakülte"><Select onChange={v => handleProfileChange('faculty', v)} value={profileData.faculty}><Option value="Muhendislik">Mühendislik</Option><Option value="FenEdebiyat">Fen-Edebiyat</Option></Select></Form.Item></Col><Col xs={24} md={12}><Form.Item label="Bölüm"><Select onChange={v => handleProfileChange('department', v)} value={profileData.department}><Option value="CENG">Bilgisayar Müh.</Option><Option value="MIS">YBS</Option></Select></Form.Item></Col></Row>
-            <Row gutter={16}><Col xs={24} md={8}><Form.Item label="Dönem"><Input value={profileData.semester} onChange={e => handleProfileChange('semester', e.target.value)} /></Form.Item></Col><Col xs={24} md={8}><Form.Item label="Akademik Düzey"><Select onChange={v => handleProfileChange('academicLevel', v)} value={profileData.academicLevel}><Option value="Lisans">Lisans</Option><Option value="Yuksek">Yüksek Lisans</Option></Select></Form.Item></Col><Col xs={24} md={8}><Form.Item label="Burs"><Select onChange={v => handleProfileChange('scholarship', v)} value={profileData.scholarship}><Option value="Var">Var</Option><Option value="Yok">Yok</Option></Select></Form.Item></Col></Row>
+            <Row gutter={16}>
+                <Col xs={24} md={12}>
+                    <Form.Item label="Fakülte">
+                        <Input value={profileData.faculty} onChange={e => handleProfileChange('faculty', e.target.value)} />
+                    </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                    <Form.Item label="Bölüm">
+                        <Input value={profileData.department} onChange={e => handleProfileChange('department', e.target.value)} />
+                    </Form.Item>
+                </Col>
+            </Row>
+            <Row gutter={16}>
+                <Col xs={24} md={8}>
+                    <Form.Item label="Dönem">
+                        <Input value={profileData.semester} onChange={e => handleProfileChange('semester', e.target.value)} />
+                    </Form.Item>
+                </Col>
+                <Col xs={24} md={8}>
+                    <Form.Item label="Akademik Düzey">
+                        <Input value={profileData.academicLevel} onChange={e => handleProfileChange('academicLevel', e.target.value)} />
+                    </Form.Item>
+                </Col>
+                <Col xs={24} md={8}>
+                    <Form.Item label="Burs">
+                        <Select onChange={v => handleProfileChange('scholarship', v)} value={profileData.scholarship}>
+                            <Option value="Var">Var</Option>
+                            <Option value="Yok">Yok</Option>
+                        </Select>
+                    </Form.Item>
+                </Col>
+            </Row>
             
             <Divider orientation="left">Aile Bilgileri</Divider>
             <Row gutter={16}>

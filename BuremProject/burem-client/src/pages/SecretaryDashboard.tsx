@@ -81,7 +81,7 @@ const SecretaryDashboard = () => {
     const [allAppointments, setAllAppointments] = useState<AppointmentDetail[]>([]);
     const [therapists, setTherapists] = useState<TherapistAvailability[]>([]);
     
-    // Filtreleme State'leri (Analiz [cite: 92-97])
+    // Filtreleme State'leri (Analiz)
     const [searchText, setSearchText] = useState("");
     const [facultyFilter, setFacultyFilter] = useState<string | null>(null);
     const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -119,7 +119,7 @@ const SecretaryDashboard = () => {
 
     useEffect(() => { loadData(); }, []);
 
-    // --- FİLTRELEME MANTIĞI (Analiz [cite: 92-97]) ---
+    // --- FİLTRELEME MANTIĞI (Analiz) ---
     const filteredPending = pendingStudents.filter(student => {
         const matchesSearch = student.name.toLowerCase().includes(searchText.toLowerCase()) || 
                               (student.studentNo && student.studentNo.includes(searchText));
@@ -128,35 +128,61 @@ const SecretaryDashboard = () => {
         return matchesSearch && matchesFaculty && matchesType;
     });
 
-    const handleOpenAssignModal = (student: PendingSession) => {
+    // --- [GÜNCELLEME BURADA] MODAL AÇMA VE OTOMATİK SEÇİM ---
+    const handleOpenAssignModal = async (student: PendingSession) => {
         setSelectedStudent(student);
         setSelectedTherapistId(null);
         form.resetFields();
         setIsModalOpen(true);
+
+        try {
+            // Başvuru detaylarını çekerek öğrencinin tercihini öğreniyoruz
+            // agent.ts içindeki getById: (id: number) => requests.get<SessionDetailDTO>(`/Sessions/${id}`) olmalı
+            const sessionDetails: any = await agent.Sessions.getById(student.id);
+
+            if (sessionDetails && sessionDetails.preferredMeetingType) {
+                let formValue = undefined;
+                const pref = sessionDetails.preferredMeetingType.toLowerCase();
+
+                // Backend "Online" dönerse -> Frontend "Çevrimiçi" seçsin
+                if (pref.includes("online")) {
+                    formValue = "Çevrimiçi";
+                } 
+                // Backend "Yuzyuze" dönerse -> Frontend "Yüzyüze" seçsin
+                else if (pref.includes("yuzyuze") || pref.includes("yüz")) {
+                    formValue = "Yüzyüze";
+                }
+
+                if (formValue) {
+                    form.setFieldsValue({
+                        type: formValue
+                    });
+                    // Kullanıcıya bilgi vermek isterseniz:
+                    // message.info(`Öğrenci tercihi (${formValue}) otomatik seçildi.`);
+                }
+            }
+        } catch (error) {
+            console.error("Görüşme tercihi çekilemedi:", error);
+            // Hata olsa bile modal açık kalır, sadece otomatik seçim yapılmaz.
+        }
     };
 
-    // --- RANDEVU OLUŞTURMA (Analiz [cite: 122-129]) ---
+    // --- RANDEVU OLUŞTURMA (Analiz) ---
     const handleOk = () => {
         form.validateFields().then(async (values) => {
             if (!selectedStudent) return;
             setLoading(true);
             
-            // SecretaryDashboard.tsx -> handleOk fonksiyonu içine:
-
             const payload = {
                 sessionId: selectedStudent.id,
                 therapistId: values.therapistId,
-                // Tarihi string'e çeviriyoruz. Örn: "2025-11-26"
                 appointmentDate: values.date ? values.date.format('YYYY-MM-DD') : "", 
                 appointmentHour: values.time,
                 appointmentType: values.type,
                 locationOrLink: values.locationOrLink || "BÜREM Ofis",
             };
 
-            // Konsola yazdırıp kontrol edelim (F12 -> Console)
             console.log("Sunucuya Gönderilen Veri:", payload); 
-
-            await agent.Appointments.create(payload);
 
             try {
                 await agent.Appointments.create(payload);
@@ -165,8 +191,7 @@ const SecretaryDashboard = () => {
                 loadData(); // Listeyi güncelle
                 setActiveTab('3'); // "Atanmış Randevular" sekmesine geç
             } catch (error: any) {
-                // Hata mesajını yakalama
-                const errorMsg = error.response?.data?.message || "Randevu oluşturulamadı (400 Bad Request). Lütfen Backend DTO'sunu kontrol edin.";
+                const errorMsg = error.response?.data?.message || "Randevu oluşturulamadı.";
                 message.error(errorMsg);
             } finally {
                 setLoading(false);
@@ -178,11 +203,11 @@ const SecretaryDashboard = () => {
 
     // --- EKRAN TASARIMLARI ---
 
-    // 1. Sekme: Yeni Başvurular (Analiz [cite: 90-97])
+    // 1. Sekme: Yeni Başvurular (Analiz)
     const renderNewApplications = () => (
         <Card style={CARD_STYLE} title={<span><UserAddOutlined /> Yeni Başvurular Listesi</span>} extra={<Button icon={<ReloadOutlined/>} onClick={loadData}>Yenile</Button>}>
             
-            {/* Filtre Barı (Analiz [cite: 92]) */}
+            {/* Filtre Barı (Analiz) */}
             <div style={{ background: '#fafafa', padding: 15, borderRadius: 6, marginBottom: 15, border: '1px solid #f0f0f0' }}>
                 <Row gutter={16} align="middle">
                     <Col span={8}>
@@ -208,7 +233,7 @@ const SecretaryDashboard = () => {
                 </Row>
             </div>
 
-            {/* Başvuru Tablosu (Analiz [cite: 91]) */}
+            {/* Başvuru Tablosu (Analiz) */}
             <Table 
                 dataSource={filteredPending}
                 rowKey="id"
@@ -234,7 +259,7 @@ const SecretaryDashboard = () => {
         </Card>
     );
 
-    // 2. Sekme: Takvim Görünümü (Analiz [cite: 195])
+    // 2. Sekme: Takvim Görünümü (Analiz)
     const renderCalendar = () => {
         const cellRender = (current: Dayjs, info: CellRenderInfo<Dayjs>) => {
             if (info.type === 'date') {
@@ -257,7 +282,7 @@ const SecretaryDashboard = () => {
         );
     };
 
-    // 3. Sekme: Atanmış Randevular (Analiz [cite: 86])
+    // 3. Sekme: Atanmış Randevular (Analiz)
     const renderAppointments = () => (
         <Card style={CARD_STYLE} title={<span><TeamOutlined /> Atanmış Randevular Listesi</span>}>
             <Table 
@@ -278,7 +303,7 @@ const SecretaryDashboard = () => {
     return (
         <div style={{ padding: 24, fontFamily: 'Helvetica, Arial, sans-serif', background: COLORS.bg, minHeight: '100vh' }}>
             
-            {/* ÜST BAR (Analiz [cite: 135]) */}
+            {/* ÜST BAR (Analiz) */}
             <div style={{ marginBottom: 24, background: '#fff', padding: '16px 24px', borderRadius: 8, borderLeft: `5px solid ${COLORS.primary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
                 <div>
                     <Title level={3} style={{ margin: 0, color: COLORS.primary }}>Sekreter Paneli</Title>
@@ -308,7 +333,7 @@ const SecretaryDashboard = () => {
                 ]}
             />
 
-            {/* --- BAŞVURU İNCELEME VE ATAMA MODALI (Analiz [cite: 98-129]) --- */}
+            {/* --- BAŞVURU İNCELEME VE ATAMA MODALI (Analiz) --- */}
             <Modal
                 title={<div style={{color: COLORS.primary, fontSize: 18, borderBottom:`1px solid ${COLORS.secondary}`, paddingBottom:10}}>Başvuru İnceleme ve Yönlendirme</div>}
                 open={isModalOpen}
@@ -322,7 +347,7 @@ const SecretaryDashboard = () => {
             >
                 <Form form={form} layout="vertical">
                     
-                    {/* ÖĞRENCİ BİLGİLERİ KARTI (Analiz [cite: 100-108]) */}
+                    {/* ÖĞRENCİ BİLGİLERİ KARTI (Analiz) */}
                     <div style={{background: '#f9fcff', padding: 20, borderRadius: 8, marginBottom: 20, border: `1px solid ${COLORS.secondary}`}}>
                         <Descriptions 
                             title={<span style={{color: COLORS.primary}}>📌 Öğrenci Bilgileri Kartı</span>} 
@@ -345,7 +370,7 @@ const SecretaryDashboard = () => {
 
                     <Divider orientation="left" style={{color: COLORS.primary, borderColor: COLORS.primary}}>Terapiste Yönlendir</Divider>
 
-                    {/* ADIM 1: TERAPİST SEÇİMİ (Analiz [cite: 111-119]) */}
+                    {/* ADIM 1: TERAPİST SEÇİMİ (Analiz) */}
                     <Row gutter={24}>
                         <Col span={12}>
                             <Form.Item name="therapistId" label="Adım 1: Terapist Seçimi" rules={[{required:true, message:'Zorunlu'}]}>
@@ -363,7 +388,7 @@ const SecretaryDashboard = () => {
                                 </Select>
                             </Form.Item>
                             
-                            {/* TERAPİST DURUM KARTI (Analiz [cite: 118]) */}
+                            {/* TERAPİST DURUM KARTI (Analiz) */}
                             {selectedTherapistDetails && (
                                 <div style={{background: '#f6ffed', border: '1px solid #b7eb8f', padding: 12, borderRadius: 6, fontSize: 13, marginBottom: 15}}>
                                     <div style={{fontWeight: 'bold', color: '#389e0d', marginBottom: 8, display:'flex', alignItems:'center'}}>
@@ -382,14 +407,14 @@ const SecretaryDashboard = () => {
                         <Col span={12}>
                             <Form.Item name="type" label="Görüşme Türü" rules={[{required:true, message:'Zorunlu'}]}>
                                 <Select placeholder="Seçiniz" size="large">
-                                    <Option value="Yüz Yüze">Yüz Yüze</Option>
-                                    <Option value="Online">Online</Option>
+                                    <Option value="Yüzyüze">Yüzyüze</Option>
+                                    <Option value="Çevrimiçi">Çevrimiçi</Option>
                                 </Select>
                             </Form.Item>
                         </Col>
                     </Row>
                     
-                    {/* ADIM 2: TARİH VE SAAT (Analiz [cite: 120-121]) */}
+                    {/* ADIM 2: TARİH VE SAAT (Analiz) */}
                     <div style={{background: '#fffbe6', padding: 15, borderRadius: 6, border:'1px solid #ffe58f', marginBottom: 15}}>
                         <Row gutter={16}>
                             <Col span={12}>
@@ -410,7 +435,7 @@ const SecretaryDashboard = () => {
                         </Row>
                     </div>
                     
-                    {/* ADIM 3: YER BİLGİSİ (Analiz [cite: 128]) */}
+                    {/* ADIM 3: YER BİLGİSİ (Analiz) */}
                     <Form.Item name="locationOrLink" label="Adım 3: Oda veya Online Link" rules={[{required:true, message:'Zorunlu'}]}>
                          <Input placeholder="Örn: Kuzey Kampüs Oda 101 veya Zoom Linki" prefix={<HomeOutlined style={{color: 'gray'}}/>} size="large" />
                     </Form.Item>

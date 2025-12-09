@@ -57,6 +57,8 @@ namespace Burem.Data.Models
         [InverseProperty("Therapist")]
         public virtual ICollection<Appointment> TherapistAppointments { get; set; }
 
+        public virtual ICollection<TherapistSchedule> Schedules { get; set; } = new List<TherapistSchedule>();
+
         public TherapistCategory? TherapistCategory { get; set; }
     }
 }

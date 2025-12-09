@@ -11,13 +11,11 @@ namespace Burem.API.Controllers
     {
         private readonly IAppointmentService _appointmentService;
 
-        // Dependency Injection ile servisi alıyoruz
         public AppointmentsController(IAppointmentService appointmentService)
         {
             _appointmentService = appointmentService;
         }
 
-        // GET: api/Appointments/AvailableTherapists
         [HttpGet("AvailableTherapists")]
         public async Task<IActionResult> GetAvailableTherapists(string category)
         {
@@ -25,33 +23,45 @@ namespace Burem.API.Controllers
             return Ok(result);
         }
 
-        // POST: api/Appointments/Create
-        [HttpPost("Create")]
-        public async Task<IActionResult> CreateAppointment([FromBody] CreateAppointmentDto dto)
-        {
-            var result = await _appointmentService.CreateAppointmentAsync(dto);
-
-            if (!result.IsSuccess)
-            {
-                return BadRequest(result.Message);
-            }
-
-            return Ok(new { message = result.Message });
-        }
-
-        [HttpGet("TherapistSchedule/{id}")]
-        public async Task<IActionResult> GetTherapistSchedule(int id)
-        {
-            var result = await _appointmentService.GetTherapistScheduleAsync(id);
-            return Ok(result);
-        }
-
-        // Controller içine bu endpoint'i ekleyin
         [HttpGet("All")]
         public async Task<IActionResult> GetAllAppointments()
         {
             var result = await _appointmentService.GetAllAppointmentsAsync();
             return Ok(result);
+        }
+
+        [HttpPost("Create")]
+        public async Task<IActionResult> Create([FromBody] CreateAppointmentDto dto)
+        {
+            var result = await _appointmentService.CreateAppointmentAsync(dto);
+            if (result.IsSuccess) return Ok(result);
+            return BadRequest(result);
+        }
+
+        [HttpPost("UpdateStatus")]
+        public async Task<IActionResult> UpdateStatus([FromBody] UpdateAppointmentStatusDto dto)
+        {
+            var result = await _appointmentService.UpdateStatusAsync(dto);
+            if (result.IsSuccess) return Ok(result);
+            return BadRequest(result);
+        }
+
+        [HttpGet("available-slots")]
+        public async Task<IActionResult> GetAvailableSlots(int therapistId, DateTime date)
+        {
+            var slots = await _appointmentService.GetAvailableHoursAsync(therapistId, date);
+            return Ok(slots);
+        }
+
+        [HttpPost("add-holiday")]
+        public async Task<IActionResult> AddHoliday([FromBody] AddHolidayDto dto)
+        {
+            var result = await _appointmentService.AddCustomHolidayAsync(dto);
+            if (result.IsSuccess)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
         }
     }
 }

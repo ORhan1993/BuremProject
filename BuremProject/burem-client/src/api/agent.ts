@@ -70,6 +70,7 @@ export interface SessionDetailDTO {
     studentName: string;
     sessionDate: string;
     advisorName: string;
+    preferredMeetingType?: string;
     answers: SessionAnswer[];
 }
 

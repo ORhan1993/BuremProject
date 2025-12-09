@@ -7,6 +7,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -377,6 +378,7 @@ namespace Burem.API.Concrete
                 {
                     await connection.OpenAsync();
 
+                    // SQL Sorgusuna 'statu' alanı eklendi
                     string sql = @"
                         WITH EnSonDonem AS (
                             SELECT d.ogrencino, d.donem, ROW_NUMBER() OVER(PARTITION BY d.ogrencino ORDER BY d.donem DESC) AS rn
@@ -389,15 +391,11 @@ namespace Burem.API.Concrete
                         SELECT
                             o.ogrencino, o.ad, o.soyad, o.cinsiyet, o.email, o.ceptel, 
                             o.fakulte, 
-                            o.bolum, 
+                            o.bolum,
+                            o.statu,        -- EKLENDİ: Statü bilgisi (LISANS, MASTER, PHD vb.)
+                            o.donemdurumu,  -- EKLENDİ: Dönem durumu (DERS, HAZIRLIK vb.)
                             YEAR(k.dogumtarihi) AS dogum_yil,
-                            ods.toplamdonem,
-                            CASE 
-                                WHEN o.donemdurumu LIKE '%LISANS%' THEN 'LISANS' 
-                                WHEN o.ogrencino LIKE '____7%' OR o.donemdurumu LIKE '%MASTER%' THEN 'MASTER' 
-                                WHEN o.ogrencino LIKE '____8%' OR o.donemdurumu LIKE '%PHD%' THEN 'PHD' 
-                                ELSE o.donemdurumu 
-                            END AS hesaplanan_akademik_duzey
+                            ods.toplamdonem
                         FROM view_ogrenci_temel_bilgileri_arsivli AS o
                         INNER JOIN TekKimlik AS k ON k.tckimlik = o.tckimlik AND k.rn = 1
                         LEFT JOIN ogrencidonemsayilari ods ON ods.ogrencino = o.ogrencino
@@ -419,36 +417,66 @@ namespace Burem.API.Concrete
                                 dto.BirthYear = reader["dogum_yil"]?.ToString();
                                 dto.Semester = reader["toplamdonem"]?.ToString();
 
-                                string rawGender = reader["cinsiyet"]?.ToString()?.Trim();
+                                string rawGender = reader["cinsiyet"]?.ToString()?.Trim().ToUpperInvariant();
                                 dto.Gender = rawGender == "K" ? "Kadin" : (rawGender == "E" ? "Erkek" : "");
 
                                 dto.Faculty = reader["fakulte"]?.ToString();
                                 dto.Department = reader["bolum"]?.ToString();
 
-                                string rawLevel = reader["hesaplanan_akademik_duzey"]?.ToString()?.ToUpperInvariant() ?? "";
-                                if (rawLevel.StartsWith("OZEL")) rawLevel = rawLevel.Replace("OZEL", "");
+                                // --- AKADEMİK DÜZEY MANTIĞI (TABLO KOMBİNASYONLARI) ---
+                                string statu = reader["statu"]?.ToString()?.ToUpper(new CultureInfo("tr-TR"))?.Trim() ?? "";
+                                string donemDurumu = reader["donemdurumu"]?.ToString()?.ToUpper(new CultureInfo("tr-TR"))?.Trim() ?? "";
 
-                                if (rawLevel.Contains("LISANS")) dto.AcademicLevel = "Lisans";
-                                else if (rawLevel.Contains("MASTER") || rawLevel.Contains("YUKSEK")) dto.AcademicLevel = "Yüksek Lisans";
-                                else if (rawLevel.Contains("PHD") || rawLevel.Contains("DOKTORA")) dto.AcademicLevel = "Doktora";
-                                else dto.AcademicLevel = "";
+                                // 1. Önce Dönem Durumu Bazlı Kontroller (Statüden bağımsız öncelikli durumlar)
+                                if (donemDurumu == "HZ.BEKLEMELI")
+                                {
+                                    // LISANS, MASTER, PHD fark etmeksizin HZ.BEKLEMELI -> Remadial
+                                    dto.AcademicLevel = "Remadial";
+                                }
+                                else if (donemDurumu == "HAZIRLIK" || donemDurumu == "HZ.IZINLI")
+                                {
+                                    // LISANS, MASTER, PHD fark etmeksizin HAZIRLIK veya HZ.IZINLI -> Hazirlik
+                                    dto.AcademicLevel = "Hazirlik";
+                                }
+                                else
+                                {
+                                    // 2. Statü Bazlı Kontroller (DERS, ONKOSUL, TEZ, STAJ vb.)
+                                    if (statu == "LISANS" || statu == "OZELLISANS")
+                                    {
+                                        // Koşullar: DERS, STAJ (T)
+                                        dto.AcademicLevel = "Lisans";
+                                    }
+                                    else if (statu == "MASTER" || statu == "OZELMASTER")
+                                    {
+                                        // Koşullar: DERS, ONKOSUL, TEZ, STAJ (T)
+                                        dto.AcademicLevel = "Yüksek Lisans"; // Yüksek Lisans
+                                    }
+                                    else if (statu == "PHD" || statu == "OZELPHD")
+                                    {
+                                        // Koşullar: DERS, ONKOSUL, TEZ, YETERLILIK, STAJ (T)
+                                        dto.AcademicLevel = "Doktora";
+                                    }
+                                    else
+                                    {
+                                        // Tanımsız kombinasyon
+                                        dto.AcademicLevel = "";
+                                    }
+                                }
 
-                                // GÜNCELLEME: Burada 'Success' yerine 'SuccessResult' kullanıyoruz
                                 return ServiceResult<StudentPreFillDto>.SuccessResult(dto);
                             }
                         }
                     }
                 }
 
-                // GÜNCELLEME: Burada 'Failure' yerine 'Fail' kullanıyoruz
                 return ServiceResult<StudentPreFillDto>.Fail("Öğrenci bilgisi bulunamadı.");
             }
             catch (Exception ex)
             {
-                // GÜNCELLEME: Burada 'Failure' yerine 'Fail' kullanıyoruz
                 return ServiceResult<StudentPreFillDto>.Fail($"Veri çekme hatası: {ex.Message}");
             }
         }
     }
+    }
 
-}
+

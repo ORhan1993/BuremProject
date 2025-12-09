@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Burem.Data.Enums; // Enumların olduğu namespace
+using Burem.Data.Enums;
 
 namespace Burem.Data.Models;
 
@@ -35,19 +35,71 @@ public partial class BuremDbContext : DbContext
     public virtual DbSet<Appointment> Appointments { get; set; }
     public virtual DbSet<GroupStudy> GroupStudies { get; set; }
 
+    // --- YENİ EKLENEN/GÜNCELLENEN TABLOLAR ---
+    public virtual DbSet<TherapistSchedule> TherapistSchedules { get; set; }
+    public virtual DbSet<Therapist> Therapists { get; set; }
+    public virtual DbSet<TherapistType> TherapistTypes { get; set; }
+    public virtual DbSet<Campus> Campuses { get; set; }
+
+    public virtual DbSet<UniversityCustomHoliday> UniversityCustomHolidays { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (!optionsBuilder.IsConfigured)
         {
-            // UYARI: Canlı ortamda ConnectionString burada OLMAMALIDIR. appsettings.json'dan okunmalıdır.
-            // Migration alırken hata almamak için geçici olarak bırakıldı.
+            // Geliştirme ortamı için connection string (Canlıda appsettings.json kullanın)
             optionsBuilder.UseSqlServer("Server=193.140.192.77;Database=buremkayit;user id=buremkayit;password=uWPLeo4sL4;MultipleActiveResultSets=True;TrustServerCertificate=True;");
         }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // --- 1. ANSWER (CEVAPLAR) ---
+        // --- 1. THERAPIST (UZMANLAR) - GÜNCELLENDİ ---
+        modelBuilder.Entity<Therapist>(entity =>
+        {
+            entity.ToTable("Therapists");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.FirstName).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.LastName).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.RoleId).HasDefaultValue(4);
+
+            // SQL'deki DEFAULT değerlerin karşılıkları:
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.TherapistTypeId).HasDefaultValue(2); // Varsayılan: Deneyimli Uzman
+            entity.Property(e => e.CampusId).HasDefaultValue(1);        // Varsayılan: Kuzey Kampüs
+
+            // İlişkiler
+            entity.HasOne(d => d.TherapistType)
+                  .WithMany(p => p.Therapists)
+                  .HasForeignKey(d => d.TherapistTypeId)
+                  .OnDelete(DeleteBehavior.Restrict); // Tür silinirse uzmanlar boşa düşmesin diye koruma
+
+            entity.HasOne(d => d.Campus)
+                  .WithMany(p => p.Therapists)
+                  .HasForeignKey(d => d.CampusId)
+                  .OnDelete(DeleteBehavior.Restrict); // Kampüs silinirse uzmanlar boşa düşmesin diye koruma
+        });
+
+        // --- 2. THERAPIST TYPES (UZMAN TÜRLERİ) - YENİ ---
+        modelBuilder.Entity<TherapistType>(entity =>
+        {
+            entity.ToTable("TherapistTypes");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
+
+        // --- 3. CAMPUSES (KAMPÜSLER) - YENİ ---
+        modelBuilder.Entity<Campus>(entity =>
+        {
+            entity.ToTable("Campuses");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
+
+        // --- 4. ANSWER (CEVAPLAR) ---
         modelBuilder.Entity<Answer>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
@@ -64,49 +116,49 @@ public partial class BuremDbContext : DbContext
                 .HasConstraintName("FK_Answers_Sessions");
         });
 
-        // --- 2. APPOINTMENT (RANDEVULAR) - GÜNCELLENDİ ---
+        // --- 5. APPOINTMENT (RANDEVULAR) ---
         modelBuilder.Entity<Appointment>(entity =>
         {
-            entity.ToTable("Appointments"); // Tablo adı
+            entity.ToTable("Appointments");
             entity.HasKey(e => e.Id);
 
             entity.Property(e => e.AppointmentDate).HasColumnType("datetime2(7)");
-            entity.Property(e => e.EndDate).HasColumnType("datetime2(7)"); // Yeni alan
+            entity.Property(e => e.EndDate).HasColumnType("datetime2(7)");
             entity.Property(e => e.AppointmentType).HasMaxLength(50);
             entity.Property(e => e.LocationOrLink).HasMaxLength(500);
-            entity.Property(e => e.CancellationReason).HasMaxLength(255); // Yeni alan
+            entity.Property(e => e.CancellationReason).HasMaxLength(255);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
 
-            // Status Enum Mapping (Veritabanında INT tutuluyor)
+            // Status Enum Mapping
             entity.Property(e => e.Status)
                   .HasConversion<int>()
                   .HasDefaultValue(AppointmentStatus.Planned);
 
             // İlişkiler
             entity.HasOne(d => d.Session)
-                  .WithMany() // Session'ın Appointments listesi yoksa boş bırak
+                  .WithMany()
                   .HasForeignKey(d => d.SessionId)
                   .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(d => d.Therapist)
-                  .WithMany(p => p.TherapistAppointments)
-                  .HasForeignKey(d => d.TherapistId)
-                  .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(d => d.User)
                   .WithMany(p => p.StudentAppointments)
                   .HasForeignKey(d => d.UserId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.Therapist)
+                  .WithMany(p => p.Appointments)
+                  .HasForeignKey(d => d.TherapistId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // --- 3. ERROR LOG ---
+        // --- 6. ERROR LOG ---
         modelBuilder.Entity<ErrorLog>(entity =>
         {
             entity.HasKey(e => e.ErrorId);
             entity.Property(e => e.ErrorId).HasColumnName("ErrorID");
         });
 
-        // --- 4. EXCEL VIEW ---
+        // --- 7. EXCEL VIEW ---
         modelBuilder.Entity<ExcelView>(entity =>
         {
             entity.HasNoKey().ToView("ExcelView");
@@ -125,7 +177,7 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.OptionValue).HasMaxLength(4000);
         });
 
-        // --- 5. IP LIST ---
+        // --- 8. IP LIST ---
         modelBuilder.Entity<IpList>(entity =>
         {
             entity.ToTable("IpList");
@@ -134,7 +186,7 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.Ip).HasMaxLength(50).HasColumnName("IP");
         });
 
-        // --- 6. LOG ---
+        // --- 9. LOG ---
         modelBuilder.Entity<Log>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
@@ -142,7 +194,7 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.LogUser).HasMaxLength(250);
         });
 
-        // --- 7. OPTION ---
+        // --- 10. OPTION ---
         modelBuilder.Entity<Option>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
@@ -156,7 +208,7 @@ public partial class BuremDbContext : DbContext
                 .HasConstraintName("FK_Options_Questions");
         });
 
-        // --- 8. QUESTION ---
+        // --- 11. QUESTION ---
         modelBuilder.Entity<Question>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
@@ -167,21 +219,21 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.QuestionTitle).HasMaxLength(255);
         });
 
-        // --- 9. QUESTION GROUP ---
+        // --- 12. QUESTION GROUP ---
         modelBuilder.Entity<QuestionGroup>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
             entity.Property(e => e.GroupName).HasMaxLength(250).IsUnicode(false);
         });
 
-        // --- 10. QUESTION TYPE ---
+        // --- 13. QUESTION TYPE ---
         modelBuilder.Entity<QuestionType>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
             entity.Property(e => e.QuestionType1).HasMaxLength(255).HasColumnName("QuestionType");
         });
 
-        // --- 11. ROLE ---
+        // --- 14. ROLE ---
         modelBuilder.Entity<Role>(entity =>
         {
             entity.ToTable("UserRoles");
@@ -197,7 +249,7 @@ public partial class BuremDbContext : DbContext
             );
         });
 
-        // --- 12. SEARCH VIEW ---
+        // --- 15. SEARCH VIEW ---
         modelBuilder.Entity<SearchView>(entity =>
         {
             entity.HasNoKey().ToView("SearchView");
@@ -208,7 +260,7 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.StudentId).HasColumnName("StudentID");
         });
 
-        // --- 13. SESSION (GÜNCELLENDİ) ---
+        // --- 16. SESSION ---
         modelBuilder.Entity<Session>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
@@ -218,12 +270,11 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.IsOnline).HasDefaultValue(false).HasColumnName("isOnline");
             entity.Property(e => e.SessionDate).HasColumnType("datetime");
 
-            // Yeni Raporlama Alanları
             entity.Property(e => e.SessionNumber).HasDefaultValue(1);
             entity.Property(e => e.Status).HasMaxLength(50);
             entity.Property(e => e.RiskLevel).HasMaxLength(50);
             entity.Property(e => e.ReferralDestination).HasMaxLength(255);
-            entity.Property(e => e.TherapistNotes).HasColumnType("nvarchar(max)"); // Gizli notlar
+            entity.Property(e => e.TherapistNotes).HasColumnType("nvarchar(max)");
 
             entity.HasOne(d => d.Advisor)
                   .WithMany()
@@ -237,7 +288,7 @@ public partial class BuremDbContext : DbContext
                   .HasConstraintName("FK_Sessions_Students");
         });
 
-        // --- 14. SITE CONTENT ---
+        // --- 17. SITE CONTENT ---
         modelBuilder.Entity<SiteContent>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -246,7 +297,7 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.ContentKey).HasMaxLength(255);
         });
 
-        // --- 15. STUDENT ---
+        // --- 18. STUDENT ---
         modelBuilder.Entity<Student>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
@@ -259,7 +310,7 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.IsWorking).HasColumnName("isWorking");
         });
 
-        // --- 16. USER (GÜNCELLENDİ) ---
+        // --- 19. USER ---
         modelBuilder.Entity<User>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("ID");
@@ -267,12 +318,10 @@ public partial class BuremDbContext : DbContext
             entity.Property(e => e.LastName).HasMaxLength(150);
             entity.Property(e => e.UserName).HasMaxLength(255);
 
-            // Uzman Türü (Enum -> String olarak veritabanında NVARCHAR tutulacak)
             entity.Property(e => e.TherapistCategory)
                   .HasMaxLength(50)
                   .HasConversion<string>();
 
-            // UserType -> Role İlişkisi
             entity.HasOne(d => d.Role)
                   .WithMany()
                   .HasForeignKey(d => d.UserType)

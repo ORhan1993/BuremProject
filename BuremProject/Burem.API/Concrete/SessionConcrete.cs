@@ -35,31 +35,59 @@ namespace Burem.API.Concrete
                 if (advisor != null)
                 {
                     // Şifreli isimleri çözüyoruz
-                    string fName = CryptoHelper.Decrypt(advisor.FirstName);
-                    string lName = CryptoHelper.Decrypt(advisor.LastName);
-                    advisorName = $"{fName} {lName}";
+                    string fName = !string.IsNullOrEmpty(advisor.FirstName) ? CryptoHelper.Decrypt(advisor.FirstName) : "";
+                    string lName = !string.IsNullOrEmpty(advisor.LastName) ? CryptoHelper.Decrypt(advisor.LastName) : "";
+                    advisorName = $"{fName} {lName}".Trim();
                 }
             }
 
             // 3. Cevaplar
             var answers = await _context.Answers.Where(a => a.SessionId == sessionId).ToListAsync();
 
+            // Görüşme Tercihi Tespiti (Soru ID: 220)
+            var meetingPreferenceAnswer = answers.FirstOrDefault(a => a.QuestionId == 220);
+            string preferredType = "";
+
+            if (meetingPreferenceAnswer != null)
+            {
+                // Veritabanındaki değer null gelirse patlamasın, küçük harfe çevirip boşlukları temizleyelim.
+                var val = meetingPreferenceAnswer.OptionValue?.ToLowerInvariant()?.Trim() ?? "";
+
+                // 1. Durum: Online Kontrolü ("1" veya içinde "online" geçiyorsa)
+                if (val == "1" || val.Contains("Çevrimiçi"))
+                {
+                    preferredType = "Çevrimiçi";
+                }
+                // 2. Durum: Yüzyüze Kontrolü ("2" veya içinde "yüz" geçiyorsa)
+                else if (val == "2" || val.Contains("Yüzyüze"))
+                {
+                    preferredType = "Yüzyüze"; // Frontend'e standart bir kod gönderiyoruz
+                }
+                else
+                {
+                    // Tanımsız bir değerse olduğu gibi gönderelim (Debug için)
+                    preferredType = meetingPreferenceAnswer.OptionValue;
+                }
+            }
+
             // 4. Sorular ve Seçenekleri
+            // Sadece bu başvuruda cevaplanmış soruları ve AppForm=1 olanları çekiyoruz
             var questionIds = answers.Select(a => a.QuestionId).Distinct().ToList();
             var questions = await _context.Questions
-                                          .Where(q => questionIds.Contains(q.Id))
-                                          .Where(q => q.AppForm == 1)
-                                          .Include(q => q.Options)
-                                          .ToListAsync();
+                                            .Where(q => questionIds.Contains(q.Id))
+                                            .Where(q => q.AppForm == 1)
+                                            .Include(q => q.Options)
+                                            .ToListAsync();
 
             // 5. DTO Oluştur
             var dto = new SessionDetailDto
             {
                 SessionId = session.Id,
-                StudentName = $"{session.Student.FirstName} {session.Student.LastName}",
-                StudentNumber = session.Student.StudentNo,
+                StudentName = $"{session.Student?.FirstName} {session.Student?.LastName}",
+                StudentNumber = session.Student?.StudentNo,
                 SessionDate = session.SessionDate.ToString("dd.MM.yyyy"),
                 AdvisorName = advisorName,
+                PreferredMeetingType = preferredType,
                 Answers = new List<SessionAnswerDto>()
             };
 
@@ -72,19 +100,19 @@ namespace Burem.API.Concrete
                 {
                     QuestionId = q.Id,
                     QuestionTitle = q.QuestionTitle,
-                    QuestionType = q.QuestionType,
+                    QuestionType = q.QuestionType, // Soru tipini ekledik (Radio, Checkbox vs için)
                     AnswerValue = ans.OptionValue,
 
-                    // --- BURASI DÜZELTİLDİ ---
+                    // --- SEÇENEKLERİ DOLDURMA (Düzeltilen Kısım) ---
                     Options = q.Options
-                               .OrderBy(o => o.SortOrder)
-                               .Select(o => new SessionOptionDto
-                               {
-                                   // Eğer OptionTitleStudent boş değilse onu kullan, yoksa OptionTitle kullan
-                                   Label = !string.IsNullOrEmpty(o.OptionTitleStudent) ? o.OptionTitleStudent : o.OptionTitle,
-                                   Value = o.OptionValue
-                               })
-                               .ToList()
+                                .OrderBy(o => o.SortOrder)
+                                .Select(o => new SessionOptionDto
+                                {
+                                    // Eğer OptionTitleStudent (Öğrenciye görünen metin) boş değilse onu kullan, yoksa normal Title'ı kullan
+                                    Label = !string.IsNullOrEmpty(o.OptionTitleStudent) ? o.OptionTitleStudent : o.OptionTitle,
+                                    Value = o.OptionValue
+                                })
+                                .ToList()
                 });
             }
 

@@ -10,6 +10,8 @@ namespace Burem.API.DTOs
         public string StudentNumber { get; set; }
         public string SessionDate { get; set; }
         public string AdvisorName { get; set; }
+
+        public string PreferredMeetingType { get; set; }
         public List<SessionAnswerDto> Answers { get; set; }
     }
 

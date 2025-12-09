@@ -6,6 +6,7 @@
         public int? SessionId { get; set; }
         public int? TherapistId { get; set; }
         public int? UserId { get; set; }
+        public int CurrentUserRoleId { get; set; }
 
         // Tarihleri 'string?' yapıyoruz. Format hatası (400) almayı engelliyoruz.
         public string? AppointmentDate { get; set; } // Örn: "2025-11-25"
