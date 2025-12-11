@@ -63,5 +63,19 @@ namespace Burem.API.Controllers
             }
             return BadRequest(result);
         }
+
+        [HttpGet("MyAppointments")]
+        // [Authorize(Roles = "Therapist")] // Sadece terapistler görebilsin
+        public async Task<IActionResult> GetMyAppointments()
+        {
+            // Terapist ID'sini token'dan alıyoruz
+            var userIdString = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            // Test için (Token yoksa) elle ID veriyoruz:
+            int therapistId = int.TryParse(userIdString, out int id) ? id : 1;
+
+            var result = await _appointmentService.GetTherapistAppointmentsAsync(therapistId);
+            return Ok(result);
+        }
     }
 }

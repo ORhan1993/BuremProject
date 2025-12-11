@@ -1,45 +1,67 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Burem.Data;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Burem.Data.Models;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
-[Route("api/[controller]")]
-[ApiController]
-public class StatisticsController : ControllerBase
+namespace Burem.API.Controllers
 {
-    private readonly BuremDbContext _context;
-
-    public StatisticsController(BuremDbContext context)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class StatisticsController : ControllerBase
     {
-        _context = context;
-    }
+        private readonly BuremDbContext _context;
 
-    [HttpGet("Dashboard")]
-    public async Task<IActionResult> GetDashboardStats()
-    {
-        var today = DateTime.Today;
+        public StatisticsController(BuremDbContext context)
+        {
+            _context = context;
+        }
 
-        // 1. Toplam Öğrenci Sayısı
-        var totalStudents = await _context.Students.CountAsync();
+        [HttpGet("Dashboard")]
+        public async Task<IActionResult> GetDashboardStats()
+        {
+            // İstatistikleri veritabanından canlı çekiyoruz
+            var totalStudents = await _context.Students.CountAsync();
+            var totalSessions = await _context.Sessions.CountAsync();
 
-        // 2. Toplam Başvuru Sayısı
-        var totalSessions = await _context.Sessions.CountAsync();
+            // Bugünkü seanslar
+            var today = DateTime.Today;
+            var todaySessions = await _context.Sessions
+                                              .Where(s => s.SessionDate.Date == today)
+                                              .CountAsync();
 
-        // 3. Bugünkü Başvurular
-        var todaySessions = await _context.Sessions
-                                          .Where(s => s.SessionDate >= today && s.SessionDate < today.AddDays(1))
+            // Bekleyen formlar/başvurular (Örn: Henüz onaylanmamış veya tarihi gelmemiş)
+            // Mantığınıza göre burayı filtreleyebilirsiniz. Örn: Status == null
+            var pendingForms = await _context.Sessions
+                                             .Where(s => s.Status == null || s.Status == "Bekliyor")
+                                             .CountAsync();
+
+            // Riskli vakalar (RiskLevel dolu olanlar)
+            var riskCases = await _context.Sessions
+                                          .Where(s => !string.IsNullOrEmpty(s.RiskLevel) && s.RiskLevel != "Düşük")
                                           .CountAsync();
 
-        // 4. Bekleyen (Arşivlenmemiş) Formlar
-        var pendingForms = await _context.Sessions
-                                         .Where(s => s.IsArchived != true)
-                                         .CountAsync();
+            // Aktif Vakalar (Arşivlenmemiş öğrenciler)
+            // Basitçe aktif öğrenci sayısı veya aktif seans sayısı
+            var activeCases = await _context.Sessions
+                                            .Where(s => s.IsArchived == false)
+                                            .CountAsync();
 
-        return Ok(new
-        {
-            TotalStudents = totalStudents,
-            TotalSessions = totalSessions,
-            TodaySessions = todaySessions,
-            PendingForms = pendingForms
-        });
+            var completedProcess = await _context.Sessions
+                                                 .Where(s => s.IsArchived == true)
+                                                 .CountAsync();
+
+            return Ok(new
+            {
+                totalStudents,
+                totalSessions,
+                todaySessions,
+                pendingForms,
+                activeCases,
+                riskCases,
+                completedProcess
+            });
+        }
     }
 }

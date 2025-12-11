@@ -1,4 +1,5 @@
 ﻿using Burem.API.DTOs;
+using Burem.Data;
 using Burem.Data.Enums;
 using Burem.Data.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -44,7 +45,7 @@ namespace Burem.API.Controllers
             // 2. Terapist Türüne Göre Dağılım
             stats.TherapistStats = appointments
                 .Where(a => a.Therapist != null)
-                .GroupBy(a => a.Therapist.TherapistCategory)
+                .GroupBy(a => a.Therapist.TherapistTypeId)
                 .Select(g => new TherapistStatDto
                 {
                     Category = g.Key.ToString(), // "Discounted", "Experienced" vs. döner

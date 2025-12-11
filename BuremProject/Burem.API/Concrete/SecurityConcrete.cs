@@ -1,4 +1,5 @@
 ﻿using Burem.API.Abstract;
+using Burem.Data;
 using Burem.Data.Models;
 
 namespace Burem.API.Concrete

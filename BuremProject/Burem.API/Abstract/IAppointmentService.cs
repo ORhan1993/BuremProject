@@ -31,5 +31,8 @@ namespace Burem.API.Abstract
         Task<bool> IsHolidayAsync(DateTime date);
         // Özel tatil ekleme
         Task<ServiceResultDto> AddCustomHolidayAsync(AddHolidayDto dto);
+
+        // Terapist ID'sine göre randevuları getiren metot tanımı
+        Task<List<TherapistAppointmentDto>> GetTherapistAppointmentsAsync(int therapistId);
     }
 }

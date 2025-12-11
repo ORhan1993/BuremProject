@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Burem.Data.Models;
 using ClosedXML.Excel;
 using System.IO;
+using Burem.Data;
 
 [Route("api/[controller]")]
 [ApiController]

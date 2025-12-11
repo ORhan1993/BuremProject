@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Burem.Data.Models;
 using Burem.API.DTOs;
+using Burem.Data;
 
 [Route("api/[controller]")]
 [ApiController]

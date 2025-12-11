@@ -3,8 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
     Layout, Menu, Table, Button, Modal, Form, Input, Tabs, message, 
     Card, Select, Popconfirm, Tag, Space, Row, Col, Statistic, 
-    DatePicker, Tooltip, InputNumber, Descriptions, Spin, Radio, Switch, Drawer, Collapse, Alert, Typography, 
-    Divider, Calendar, List, Badge, Avatar, Popover, Timeline, Checkbox, Steps, Progress, theme
+    DatePicker, Tooltip, InputNumber, Descriptions, Spin, Switch, Drawer, Collapse, Alert, Typography, 
+    Divider, List, Avatar, Timeline, Checkbox, Progress
 } from 'antd';
 import { 
     FormOutlined, PlusOutlined, DeleteOutlined, 
@@ -12,28 +12,32 @@ import {
     DashboardOutlined, SolutionOutlined, 
     EyeOutlined, ClearOutlined, ArrowLeftOutlined,
     FileTextOutlined, FileDoneOutlined, DownloadOutlined, 
-    SaveOutlined, UserAddOutlined, 
-    MenuUnfoldOutlined, MenuFoldOutlined,
-    BookOutlined, PhoneOutlined, LockOutlined, CalendarOutlined, CheckCircleOutlined,
-    AppstoreOutlined, GlobalOutlined, SafetyCertificateOutlined,
-    MedicineBoxOutlined, HistoryOutlined, RightOutlined, 
-    ClockCircleOutlined, AlertOutlined, FileProtectOutlined,
-    RiseOutlined, PieChartOutlined, FallOutlined
+    SaveOutlined, MenuUnfoldOutlined, MenuFoldOutlined,
+    BookOutlined, CalendarOutlined, CheckCircleOutlined,
+    AppstoreOutlined, GlobalOutlined, 
+    MedicineBoxOutlined, AlertOutlined, FileProtectOutlined,
+    RiseOutlined, PieChartOutlined, FallOutlined,
+    LockOutlined, BuildOutlined, IdcardOutlined, UnlockOutlined, ScheduleOutlined
 } from '@ant-design/icons';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import dayjs from 'dayjs'; 
 import 'dayjs/locale/tr';
 
+// --- API AGENT ---
 import agent from '../../api/agent';
 import type { 
     StudentProfileDetail, 
     Question, 
     SiteContent, 
-    StudentSession
+    StudentSession 
 } from '../../api/agent';
 
-// --- KENDİ MODAL DOSYANIZ ---
+// --- HARİCİ MODÜLLER (Önceki adımda oluşturduklarımız) ---
+import TherapistModule from './TherapistModule';
+import SecretaryModule from './SecretaryModule';
+
+// --- MODAL ---
 import AppointmentModal from '../../components/AppointmentModal';
 
 dayjs.locale('tr');
@@ -109,7 +113,7 @@ const safeDateFormat = (dateString: string | undefined | null, format = 'DD.MM.Y
 };
 
 // ============================================================================
-// 1. DASHBOARD MODULE
+// 1. DASHBOARD MODULE (Canlı Veri Güncellendi)
 // ============================================================================
 const Dashboard = () => {
     const [stats, setStats] = useState<any>(null);
@@ -117,11 +121,21 @@ const Dashboard = () => {
     const [filterFaculty, setFilterFaculty] = useState<string | null>(null);
 
     useEffect(() => {
-        // Mock data ile başlatıyoruz ki hata vermesin
-        setStats({ totalStudents: 150, totalSessions: 450, todaySessions: 5, pendingForms: 2, activeCases: 42, riskCases: 5, completedProcess: 88 }); 
-        setLoading(false); 
-        
-        // agent.Stats.getDashboard() ...
+        async function fetchStats() {
+            setLoading(true);
+            try {
+                // API ÇAĞRISI
+                const data = await agent.Stats.getDashboard();
+                setStats(data);
+            } catch (error) {
+                console.error("Dashboard verisi çekilemedi", error);
+                // Hata olsa bile UI bozulmasın diye boş obje
+                setStats({ totalStudents: 0, totalSessions: 0, todaySessions: 0, pendingForms: 0, activeCases: 0, riskCases: 0, completedProcess: 0 });
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchStats();
     }, []);
 
     if (loading) return (
@@ -132,6 +146,7 @@ const Dashboard = () => {
         </div>
     );
     
+    // Sabit grafik verileri (İleride API'den gelebilir)
     const facultyData = [
         { name: 'Eğitim Fakültesi', value: 35, color: '#1890ff' },
         { name: 'Fen-Edebiyat Fak.', value: 25, color: '#52c41a' },
@@ -143,7 +158,6 @@ const Dashboard = () => {
     const therapistPerformance = [
         { key: 1, name: 'Rabia Özdemir', active: 12, completed: 45, satisfaction: 4.8, status: 'Müsait' },
         { key: 2, name: 'Mehmet Turan', active: 15, completed: 30, satisfaction: 4.5, status: 'Dolu' },
-        { key: 3, name: 'Ayşe Yılmaz', active: 8, completed: 12, satisfaction: 4.9, status: 'Müsait' },
     ];
 
     const sessionDropOff = [
@@ -152,9 +166,6 @@ const Dashboard = () => {
         { session: '3. Seans', count: 70, percent: 70 },
         { session: '4. Seans', count: 60, percent: 60 },
         { session: '5. Seans', count: 50, percent: 50 },
-        { session: '6. Seans', count: 45, percent: 45 },
-        { session: '7. Seans', count: 40, percent: 40 },
-        { session: '8. Seans', count: 38, percent: 38 },
     ];
 
     const performanceColumns = [
@@ -230,10 +241,10 @@ const Dashboard = () => {
                         label: <span><FallOutlined /> Seans Devamlılığı</span>,
                         children: (
                             <div style={{ padding: 20 }}>
-                                <Title level={5}>Görüşme 1-8 Arası Devamlılık Analizi</Title>
+                                <Title level={5}>Görüşme 1-5 Arası Devamlılık Analizi</Title>
                                 <Row gutter={[16, 16]}>
                                     {sessionDropOff.map((item, index) => (
-                                        <Col span={3} key={index} style={{ textAlign: 'center' }}>
+                                        <Col span={4} key={index} style={{ textAlign: 'center' }}>
                                             <div style={{ height: 150, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 10 }}>
                                                 <div style={{ width: 40, height: `${item.percent}%`, background: item.percent > 50 ? '#1890ff' : '#ffec3d', borderRadius: '4px 4px 0 0' }} />
                                             </div>
@@ -252,303 +263,156 @@ const Dashboard = () => {
 };
 
 // ============================================================================
-// 2. TERAPİST PANELİ
+// 2. DEFINITION MANAGER (TANIMLAMA YÖNETİMİ)
 // ============================================================================
-const TherapistDashboard = () => {
-    const [drawerVisible, setDrawerVisible] = useState(false);
-    const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
-    const [studentDetail, setStudentDetail] = useState<any | null>(null);
-    const [appointments, setAppointments] = useState<any[]>([]);
+const DefinitionManager = ({ defaultTab = '1' }: { defaultTab?: string }) => {
+    const [campuses, setCampuses] = useState<any[]>([]);
+    const [types, setTypes] = useState<any[]>([]);
+    const [roles, setRoles] = useState<any[]>([]);
+    const [holidays, setHolidays] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // --- YENİ EKLENEN GRUP ÇALIŞMASI STATE'LERİ ---
-    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-    const [groupForm] = Form.useForm();
-    const [groups, setGroups] = useState([
-        { id: 1, groupName: 'Sosyal Beceri Grubu', startDate: '01.12.2025', endDate: '01.02.2026', sessionCount: 8, status: 'Devam Ediyor' },
-        { id: 2, groupName: 'Sınav Kaygısı Grubu', startDate: '10.10.2025', endDate: '10.12.2025', sessionCount: 6, status: 'Tamamlandı' }
-    ]);
+    const [newCampus, setNewCampus] = useState("");
+    const [newType, setNewType] = useState("");
+    const [newRole, setNewRole] = useState("");
+    const [holidayDate, setHolidayDate] = useState("");
+    const [holidayDesc, setHolidayDesc] = useState("");
 
-    useEffect(() => {
+    useEffect(() => { loadData(); }, []);
+
+    const loadData = async () => {
         setLoading(true);
-        // CRASH FIX: agent.Sessions.getTherapistAppointments olmadığı için Mock Data kullanıyoruz.
-        const mockAppointments = [
-            { id: 101, time: '09:00', studentName: 'Ali Yılmaz', studentId: '2022001', type: 'Online', note: 'Genel tarama', status: 'active', currentSessionCount: 1 },
-            { id: 102, time: '11:00', studentName: 'Ayşe Demir', studentId: '2021002', type: 'Yüz Yüze', note: 'Depresyon takibi', status: 'active', currentSessionCount: 4 },
-            { id: 103, time: '14:00', studentName: 'Mehmet Öz', studentId: '2023005', type: 'Online', note: 'Akademik stres', status: 'completed', currentSessionCount: 2 },
-        ];
-
-        setTimeout(() => {
-            setAppointments(mockAppointments);
-            setLoading(false);
-        }, 500);
-    }, []);
-
-    const handleOpenDrawer = async (appointment: any) => {
-        setSelectedAppointment(appointment);
         try {
-            const detail = await agent.Students.getById(Number(appointment.studentId)); 
-            setStudentDetail(detail);
-            setDrawerVisible(true);
-        } catch { 
-            message.error("Öğrenci detayları alınamadı (Demo mod)"); 
-            setStudentDetail({ firstName: appointment.studentName.split(' ')[0], lastName: appointment.studentName.split(' ')[1], studentNo: appointment.studentId, department: 'Psikoloji', riskLevel: 'Düşük' });
-            setDrawerVisible(true);
+            const [cData, tData, rData, hData] = await Promise.all([
+                agent.Definitions.listCampuses(),
+                agent.Definitions.listTherapistTypes(),
+                agent.Definitions.listRoles(),
+                agent.Definitions.listHolidays()
+            ]);
+            setCampuses(cData || []);
+            setTypes(tData || []);
+            setRoles(rData || []);
+            setHolidays(hData || []);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleAddSession = () => {
-        if (selectedAppointment && selectedAppointment.currentSessionCount >= 8) {
-            Modal.error({ title: 'Maksimum Seans Sınırı', content: 'Bu öğrenci ile maksimum 8 görüşme yapılabilir.' });
-        } else {
-            message.success("Yeni seans planlama ekranı açılıyor...");
-        }
+    const handleAdd = async (type: 'campus'|'type'|'role'|'holiday') => {
+        try {
+            if (type === 'campus') {
+                if(!newCampus) return message.warning("İsim giriniz");
+                await agent.Definitions.createCampus({ name: newCampus });
+                setNewCampus("");
+            } else if (type === 'type') {
+                if(!newType) return message.warning("İsim giriniz");
+                await agent.Definitions.createTherapistType({ name: newType });
+                setNewType("");
+            } else if (type === 'role') {
+                if(!newRole) return message.warning("İsim giriniz");
+                await agent.Definitions.createRole({ roleName: newRole });
+                setNewRole("");
+            } else if (type === 'holiday') {
+                if(!holidayDate) return message.warning("Tarih seçiniz");
+                await agent.Definitions.createHoliday({ date: holidayDate, description: holidayDesc, currentUserRoleId: 1 });
+                setHolidayDate(""); setHolidayDesc("");
+            }
+            message.success("Eklendi");
+            loadData();
+        } catch(e) { message.error("İşlem başarısız"); }
     };
 
-    // --- GRUP KAYDETME ---
-    const handleSaveGroup = (values: any) => {
-        const newGroup = {
-            id: Date.now(),
-            groupName: values.groupName,
-            startDate: values.startDate ? values.startDate.format('DD.MM.YYYY') : '',
-            endDate: values.endDate ? values.endDate.format('DD.MM.YYYY') : '',
-            sessionCount: values.sessionCount,
-            status: values.status
-        };
-        setGroups([...groups, newGroup]);
-        message.success('Grup çalışması başarıyla oluşturuldu.');
-        setIsGroupModalOpen(false);
-        groupForm.resetFields();
-    };
-
-    const columns = [
-        { title: 'Saat', dataIndex: 'time', width: 80, render: (t:any) => <Tag color="blue" style={{fontSize: 14}}>{t}</Tag> },
-        { title: 'Danışan', dataIndex: 'studentName', render: (text: string, r: any) => (<Space><Avatar style={{backgroundColor: SECONDARY_COLOR}} icon={<UserOutlined />} /><div><div style={{fontWeight: 600, color: PRIMARY_COLOR}}>{text}</div><div style={{fontSize: '11px', color: '#888'}}>{r.studentId}</div></div></Space>) },
-        { title: 'Görüşme Tipi', dataIndex: 'type', render: (t: string) => <Tag color={t === 'Online' ? 'purple' : 'geekblue'}>{t}</Tag> },
-        { title: 'Notlar', dataIndex: 'note', ellipsis: true, render: (t:string) => <Text type="secondary" style={{fontSize:12}}>{t}</Text> },
-        { title: 'Durum', dataIndex: 'status', render: (s: string) => <Badge status={s==='active'?'processing':'success'} text={s==='active'?'Bekleniyor':s} /> },
-        { title: 'İşlem', render: (_: any, r: any) => (<Button type="primary" size="small" onClick={() => handleOpenDrawer(r)} style={{backgroundColor: PRIMARY_COLOR, borderRadius: 4}}>Dosyayı Aç <RightOutlined /></Button>) }
-    ];
-
-    const groupColumns = [
-        { title: 'Grup Adı', dataIndex: 'groupName', key: 'groupName', render: (t:any) => <b>{t}</b> },
-        { title: 'Başlangıç', dataIndex: 'startDate', key: 'startDate' },
-        { title: 'Bitiş', dataIndex: 'endDate', key: 'endDate' },
-        { title: 'Oturum', dataIndex: 'sessionCount', key: 'sessionCount', render: (c:any) => <Tag>{c} Oturum</Tag> },
-        { title: 'Durum', dataIndex: 'status', key: 'status', render: (s:any) => <Badge status={s === 'Devam Ediyor' ? 'processing' : 'default'} text={s} /> },
-        { title: 'İşlem', key: 'action', render: () => <Button size="small">Detay</Button> }
-    ];
-
-    return (
-        <div style={{ fontFamily: BOUN_FONT }}>
-            <Row gutter={[16, 16]} style={{marginBottom: 24}}>
-                <Col span={18}>
-                    <Alert message={<span style={{fontWeight:'bold', fontSize:16}}>Günaydın, Psk. Ayşe Yılmaz</span>} description={`Bugün toplam ${appointments.length} randevunuz var.`} type="info" showIcon icon={<ClockCircleOutlined style={{fontSize: 24, color: PRIMARY_COLOR}}/>} style={{border: `1px solid ${SECONDARY_COLOR}`, backgroundColor: '#e6f7ff', height: '100%', display:'flex', alignItems:'center'}} />
-                </Col>
-                <Col span={6}>
-                    <Card style={{...cardStyle, marginBottom: 0, textAlign:'center', background: '#fff3f3', borderColor: '#ffa39e'}} styles={{ body: { padding: 24 } }}>
-                        <Statistic title="Acil Durum / Riskli Danışan" value={1} prefix={<AlertOutlined style={{color: 'red'}} />} valueStyle={{color: 'red', fontSize: 20}} />
-                    </Card>
-                </Col>
-            </Row>
-            <div style={sectionHeaderStyle}><MedicineBoxOutlined /> Randevu Takvimi & Dosyalar</div>
-            <Card style={cardStyle} styles={{ body: { padding: 0 } }}>
-                <Tabs defaultActiveKey="1" type="card" size="large" tabBarStyle={{ margin: 0, padding: '10px 10px 0 10px', background: '#fafafa' }} items={[
-                    { key: '1', label: <span><CalendarOutlined /> Bugünkü Program</span>, children: <Table dataSource={appointments} columns={columns} rowKey="id" pagination={false} style={{padding: 20}} loading={loading} /> },
-                    { key: '2', label: <span><HistoryOutlined /> Geçmiş Görüşmeler</span>, children: <div style={{padding:20, textAlign:'center'}}>Geçmiş veriler...</div> },
-                    // --- YENİ EKLENEN SEKME: GRUP ÇALIŞMALARI ---
-                    {
-                        key: '3',
-                        label: <span><TeamOutlined /> Grup Çalışmaları</span>,
-                        children: (
-                            <div style={{padding: 20}}>
-                                <div style={{marginBottom: 16, display: 'flex', justifyContent: 'flex-end'}}>
-                                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsGroupModalOpen(true)}>
-                                        Yeni Grup Oluştur
-                                    </Button>
-                                </div>
-                                <Table 
-                                    dataSource={groups} 
-                                    columns={groupColumns} 
-                                    rowKey="id" 
-                                    pagination={false} 
-                                />
-                            </div>
-                        )
-                    }
-                ]} />
-            </Card>
+    const handleDelete = async (type: 'campus'|'type'|'role'|'holiday', id: number) => {
+        try {
+            if (type === 'campus') await agent.Definitions.deleteCampus(id);
+            else if (type === 'type') await agent.Definitions.deleteTherapistType(id);
+            else if (type === 'role') await agent.Definitions.deleteRole(id);
+            else if (type === 'holiday') await agent.Definitions.deleteHoliday(id);
             
-            <Drawer 
-                title={<Space><FileProtectOutlined style={{color: PRIMARY_COLOR}}/> <span style={{color: PRIMARY_COLOR, fontSize: 18, fontWeight: 'bold'}}>Danışan Dosyası İnceleme</span></Space>} 
-                placement="right" 
-                width={850} 
-                onClose={() => {setDrawerVisible(false); setStudentDetail(null);}} 
-                open={drawerVisible} 
-                styles={{ header: {backgroundColor: '#f0f2f5', borderBottom: `2px solid ${PRIMARY_COLOR}`} }}
-            >
-                {studentDetail && (
-                    <div style={{fontFamily: BOUN_FONT}}>
-                        <div style={{ background: '#fff', padding: 24, borderRadius: 8, marginBottom: 24, border: '1px solid #d9d9d9', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                            <Row align="middle" gutter={24}>
-                                <Col><Avatar size={80} style={{ backgroundColor: PRIMARY_COLOR, fontSize: 32 }}>{studentDetail.firstName.charAt(0)}</Avatar></Col>
-                                <Col flex="auto">
-                                    <Title level={3} style={{ margin: 0, color: '#333' }}>{studentDetail.firstName} {studentDetail.lastName}</Title>
-                                    <Text type="secondary" style={{fontSize: 16}}>{studentDetail.studentNo} | {studentDetail.department}</Text>
-                                    <div style={{ marginTop: 12 }}>
-                                        <Tag color="red" style={{padding: '4px 10px', fontSize: 13}}>Risk: {studentDetail.riskLevel || 'Bilinmiyor'}</Tag>
-                                        <Tag color="blue" style={{padding: '4px 10px', fontSize: 13}}>{studentDetail.isScholar || 'Burs Bilgisi Yok'}</Tag>
-                                        {selectedAppointment && <Tag color="purple">{selectedAppointment.currentSessionCount}. Seans</Tag>}
-                                    </div>
-                                </Col>
-                                <Col><Button type="primary" size="large" style={{backgroundColor: '#52c41a', borderColor: '#52c41a'}} icon={<PlusOutlined />} onClick={handleAddSession}>Yeni Seans</Button></Col>
-                            </Row>
-                            <Divider style={{margin: '20px 0'}} />
-                            <Descriptions column={2} size="middle" labelStyle={{fontWeight:'bold', color: PRIMARY_COLOR}}>
-                                <Descriptions.Item label="Sınıf">{studentDetail.grade || '-'}</Descriptions.Item>
-                                <Descriptions.Item label="GPA">{studentDetail.gpa || '-'}</Descriptions.Item>
-                                <Descriptions.Item label="Telefon">{studentDetail.mobilePhone}</Descriptions.Item>
-                                <Descriptions.Item label="Acil Durum">{studentDetail.contactPerson}</Descriptions.Item>
-                            </Descriptions>
-                        </div>
-                        <Tabs defaultActiveKey="1" type="line" items={[
-                            { 
-                                key: '1', label: <span style={{fontSize:15}}><SolutionOutlined/> Başvuru Formu</span>, 
-                                children: (
-                                    <div style={{paddingTop: 10}}>
-                                        <Collapse defaultActiveKey={['1']} expandIconPosition="end">
-                                            <Panel header={<span style={{fontWeight: 'bold', color: PRIMARY_COLOR}}>Form Cevapları</span>} key="1">
-                                                <List itemLayout="vertical" dataSource={studentDetail.formAnswers || []} renderItem={(item: any, index: number) => (
-                                                    <List.Item style={{padding: '12px 0'}}><List.Item.Meta title={<Text strong style={{fontSize: 14}}>{index + 1}. {item.question}</Text>} description={<div style={{padding: '10px', background: '#f4f8fc', borderRadius: 6, color: '#333', marginTop: 5, border: `1px solid ${BORDER_COLOR}`}}>{item.answer}</div>} /></List.Item>
-                                                )} />
-                                            </Panel>
-                                        </Collapse>
-                                    </div>
-                                ) 
-                            },
-                            { 
-                                key: '2', label: <span style={{fontSize:15}}><FileTextOutlined/> Klinik Notlar</span>, 
-                                children: (
-                                    <div style={{paddingTop: 10}}>
-                                        <div style={{marginBottom: 25, background: '#fffbe6', padding: 20, borderRadius: 8, border: '1px solid #ffe58f'}}>
-                                            <Text strong style={{fontSize: 16, display:'block', marginBottom: 10}}>📝 Yeni Not (Gizli):</Text>
-                                            <TextArea rows={6} style={{marginBottom: 10}} placeholder="Bu notlar öğrenci panelinde görünmez." />
-                                            <Space><Checkbox>Özel Not</Checkbox><Checkbox>Risk Bildirimi</Checkbox></Space>
-                                            <div style={{textAlign: 'right', marginTop: 10}}><Button type="primary" icon={<SaveOutlined />} style={{backgroundColor: PRIMARY_COLOR}}>Kaydet</Button></div>
-                                        </div>
-                                        <Timeline mode="left">
-                                            {studentDetail.pastNotes?.map((note: any, i: number) => (
-                                                <Timeline.Item key={i} color="blue" label={note.date}>
-                                                    <Card size="small" title={note.type} extra={<Text type="secondary" style={{fontSize:11}}>{note.author}</Text>} style={{marginBottom: 10}}><p>{note.note}</p></Card>
-                                                </Timeline.Item>
-                                            ))}
-                                        </Timeline>
-                                    </div>
-                                ) 
-                            }
-                        ]} />
-                    </div>
-                )}
-            </Drawer>
-
-            {/* GRUP OLUŞTURMA MODALI */}
-            <Modal
-                title="Yeni Grup Çalışması Oluştur"
-                open={isGroupModalOpen}
-                onCancel={() => setIsGroupModalOpen(false)}
-                footer={null}
-            >
-                <Form form={groupForm} layout="vertical" onFinish={handleSaveGroup}>
-                    <Form.Item name="groupName" label="Hangi Grup Çalışması" rules={[{ required: true }]}>
-                        <Select placeholder="Seçiniz">
-                            <Option value="Sosyal Beceri Grubu">Sosyal Beceri Grubu</Option>
-                            <Option value="Anksiyete Grubu">Anksiyete Grubu</Option>
-                            <Option value="Yas Grubu">Yas Grubu</Option>
-                        </Select>
-                    </Form.Item>
-                    <Row gutter={16}>
-                        <Col span={12}><Form.Item name="startDate" label="Başlangıç"><DatePicker style={{width:'100%'}} format="DD.MM.YYYY" /></Form.Item></Col>
-                        <Col span={12}><Form.Item name="endDate" label="Bitiş"><DatePicker style={{width:'100%'}} format="DD.MM.YYYY" /></Form.Item></Col>
-                    </Row>
-                    <Form.Item name="sessionCount" label="Oturum Sayısı"><InputNumber style={{width:'100%'}} min={1} /></Form.Item>
-                    <Form.Item name="status" label="Durum"><Select><Option value="Planlanıyor">Planlanıyor</Option><Option value="Devam Ediyor">Devam Ediyor</Option></Select></Form.Item>
-                    <div style={{textAlign:'right'}}><Button type="primary" htmlType="submit">Kaydet</Button></div>
-                </Form>
-            </Modal>
-        </div>
-    );
-};
-
-// ============================================================================
-// 3. SEKRETER PANELİ
-// ============================================================================
-const SecretaryDashboard = () => {
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedStudentName, setSelectedStudentName] = useState('');
-    const [pendingStudents, setPendingStudents] = useState<any[]>([]);
-    const [schedule, setSchedule] = useState<any[]>([]);
-
-    useEffect(() => { 
-        // Crash FIX: Mock Data ile başlatıyoruz
-        setPendingStudents([
-            { id: 1, name: 'Canan Can', department: 'Psikoloji', requestDate: '2025-11-28' },
-            { id: 2, name: 'Burak Bur', department: 'Bilgisayar Müh.', requestDate: '2025-11-27' }
-        ]);
-        setSchedule([
-            { date: '2025-11-28', type: 'warning', content: '09:00 Dolu', student: 'Ali Y.', note: 'Online', duration: '50dk' },
-            { date: '2025-11-28', type: 'success', content: '11:00 Müsait' },
-        ]);
-        
-        // agent.Students.getPending()...
-        // agent.Appointments.getSchedule()...
-    }, []);
-
-    // FIX: dateCellRender mantığı cellRender'a uyarlandı
-    const cellRender = (value: dayjs.Dayjs, info: any) => {
-        if (info.type === 'date') {
-            const listData = schedule.filter(x => x.date === value.format('YYYY-MM-DD'));
-            return (
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-                    {listData.map((item, index) => (
-                        <li key={index}>
-                            <Popover title={<span style={{color: PRIMARY_COLOR}}>{item.content}</span>} content={<div><p><b>Öğrenci:</b> {item.student}</p><p><b>Not:</b> {item.note}</p><p><b>Süre:</b> {item.duration}</p></div>}>
-                                <Badge status={item.type as any} text={item.content} style={{fontSize: 10, cursor: 'pointer'}} />
-                            </Popover>
-                        </li>
-                    ))}
-                </ul>
-            );
-        }
-        return info.originNode;
+            message.success("Silindi");
+            loadData();
+        } catch(e) { message.error("Silinemedi (Kullanımda olabilir)"); }
     };
 
+    const commonColumns = (type: 'campus'|'type'|'role'|'holiday') => [
+        { title: 'ID', dataIndex: 'id', width: 60 },
+        { 
+            title: type === 'holiday' ? 'Tarih' : 'Tanım Adı', 
+            dataIndex: type === 'role' ? 'roleName' : (type === 'holiday' ? 'holidayDate' : 'name'),
+            render: (val: any) => type === 'holiday' ? dayjs(val).format('DD.MM.YYYY') : <b>{val}</b>
+        },
+        ...(type === 'holiday' ? [{ title: 'Açıklama', dataIndex: 'description' }] : []),
+        { 
+            title: 'İşlem', width: 80, align: 'center' as const, 
+            render: (_: any, r: any) => (
+                <Popconfirm title="Silmek istediğinize emin misiniz?" onConfirm={() => handleDelete(type, r.id)}>
+                    <Button danger size="small" icon={<DeleteOutlined />} />
+                </Popconfirm>
+            )
+        }
+    ];
+
     return (
-        <div style={{ fontFamily: BOUN_FONT }}>
-            <div style={sectionHeaderStyle}><CalendarOutlined /> Sekreter Randevu Yönetimi</div>
-            <Row gutter={[24, 24]}>
-                <Col xs={24} lg={8}>
-                    <Card title={<span style={{color: PRIMARY_COLOR}}><UserAddOutlined /> Bekleyen Başvurular</span>} style={cardStyle} extra={<Tag color="red">{pendingStudents.length}</Tag>} styles={{ body: { padding: 24 } }}>
-                        <List itemLayout="horizontal" dataSource={pendingStudents} renderItem={(item) => (
-                            <List.Item actions={[<Button type="primary" size="small" onClick={()=>{setSelectedStudentName(item.name); setIsModalOpen(true);}} style={{backgroundColor: SECONDARY_COLOR, borderColor: SECONDARY_COLOR}}>Randevu Ver</Button>]}>
-                                <List.Item.Meta avatar={<div style={{width:36, height:36, background: SECONDARY_COLOR, borderRadius: '50%', display:'flex', justifyContent:'center', alignItems:'center', color:'#fff', fontWeight:'bold'}}>{item.name.charAt(0)}</div>} title={<Text strong>{item.name}</Text>} description={<div><div style={{fontSize: 11}}>{item.department}</div><div style={{fontSize: 10, color: '#888'}}>{item.requestDate}</div></div>} />
-                            </List.Item>
-                        )} />
-                    </Card>
-                </Col>
-                <Col xs={24} lg={16}>
-                    <Card title={<span style={{color: PRIMARY_COLOR}}><CalendarOutlined /> Terapist Doluluk Takvimi</span>} style={cardStyle} styles={{ body: { padding: 24 } }}>
-                        <Calendar cellRender={cellRender} fullscreen={false} />
-                    </Card>
-                </Col>
-            </Row>
-            {/* Kendi modal bileşeniniz */}
-            <AppointmentModal visible={isModalOpen} onCancel={() => setIsModalOpen(false)} studentName={selectedStudentName} sessionId={0} />
-        </div>
+        <Card style={cardStyle} title={<Space><AppstoreOutlined style={{color:PRIMARY_COLOR}}/> Sistem Tanımlamaları</Space>}>
+            <Tabs defaultActiveKey={defaultTab} type="card" items={[
+                {
+                    key: '1', label: <span><BuildOutlined /> Kampüsler</span>,
+                    children: (
+                        <div>
+                            <div style={{display:'flex', gap:10, marginBottom:15}}>
+                                <Input placeholder="Yeni Kampüs Adı" value={newCampus} onChange={e=>setNewCampus(e.target.value)} />
+                                <Button type="primary" icon={<PlusOutlined/>} onClick={()=>handleAdd('campus')}>Ekle</Button>
+                            </div>
+                            <Table dataSource={campuses} columns={commonColumns('campus')} rowKey="id" pagination={{pageSize:5}} size="small" loading={loading} />
+                        </div>
+                    )
+                },
+                {
+                    key: '2', label: <span><IdcardOutlined /> Uzman Tipleri</span>,
+                    children: (
+                        <div>
+                            <div style={{display:'flex', gap:10, marginBottom:15}}>
+                                <Input placeholder="Örn: Deneyimli Uzman" value={newType} onChange={e=>setNewType(e.target.value)} />
+                                <Button type="primary" icon={<PlusOutlined/>} onClick={()=>handleAdd('type')}>Ekle</Button>
+                            </div>
+                            <Table dataSource={types} columns={commonColumns('type')} rowKey="id" pagination={{pageSize:5}} size="small" loading={loading} />
+                        </div>
+                    )
+                },
+                {
+                    key: '3', label: <span><UnlockOutlined /> Roller</span>,
+                    children: (
+                        <div>
+                            <div style={{display:'flex', gap:10, marginBottom:15}}>
+                                <Input placeholder="Rol Adı" value={newRole} onChange={e=>setNewRole(e.target.value)} />
+                                <Button type="primary" icon={<PlusOutlined/>} onClick={()=>handleAdd('role')}>Ekle</Button>
+                            </div>
+                            <Table dataSource={roles} columns={commonColumns('role')} rowKey="id" pagination={{pageSize:5}} size="small" loading={loading} />
+                        </div>
+                    )
+                },
+                {
+                    key: '4', label: <span><ScheduleOutlined /> Resmi Tatiller</span>,
+                    children: (
+                        <div>
+                            <div style={{display:'flex', gap:10, marginBottom:15}}>
+                                <Input type="date" style={{width: 200}} value={holidayDate} onChange={e=>setHolidayDate(e.target.value)} />
+                                <Input placeholder="Tatil Açıklaması (Örn: Kar Tatili)" value={holidayDesc} onChange={e=>setHolidayDesc(e.target.value)} />
+                                <Button type="primary" icon={<PlusOutlined/>} onClick={()=>handleAdd('holiday')}>Kaydet</Button>
+                            </div>
+                            <Table dataSource={holidays} columns={commonColumns('holiday')} rowKey="id" pagination={{pageSize:5}} size="small" loading={loading} />
+                        </div>
+                    )
+                }
+            ]} />
+        </Card>
     );
 };
 
 // ============================================================================
-// 4. SESSION DETAIL MODÜLÜ
+// 3. SESSION DETAIL MODULE
 // ============================================================================
 const SessionDetailModule = ({ sessionId, mode = 'view', onBack }: { sessionId: number, mode?: 'view' | 'edit' | 'feedback', onBack: () => void }) => {
     const [form] = Form.useForm();
@@ -633,9 +497,9 @@ const SessionDetailModule = ({ sessionId, mode = 'view', onBack }: { sessionId: 
                                 <Space>
                                     <Button style={{ borderColor: '#52c41a', color: '#52c41a' }} icon={<UserAddOutlined />} onClick={() => setIsAppointmentModalOpen(true)}>Terapiste Yönlendir</Button>
                                     {!isEdit ? 
-                                        <Button type="primary" ghost icon={<EditOutlined />} onClick={() => setLocalMode('edit')}>Formu Düzenle</Button> 
-                                        : 
-                                        <Button icon={<FileTextOutlined />} onClick={() => setLocalMode('view')}>İptal</Button>
+                                    <Button type="primary" ghost icon={<EditOutlined />} onClick={() => setLocalMode('edit')}>Formu Düzenle</Button> 
+                                    : 
+                                    <Button icon={<FileTextOutlined />} onClick={() => setLocalMode('view')}>İptal</Button>
                                     }
                                 </Space>
                             )}
@@ -700,7 +564,7 @@ const SessionDetailModule = ({ sessionId, mode = 'view', onBack }: { sessionId: 
 };
 
 // ============================================================================
-// 5. ÖĞRENCİ ARAMA VE DETAY MODÜLÜ
+// 4. STUDENT SEARCH MODULE
 // ============================================================================
 const StudentSearchModule = ({ onViewStudent }: { onViewStudent: (id: any) => void }) => {
     const [form] = Form.useForm();
@@ -758,6 +622,9 @@ const StudentSearchModule = ({ onViewStudent }: { onViewStudent: (id: any) => vo
     );
 };
 
+// ============================================================================
+// 5. STUDENT DETAIL MODULE
+// ============================================================================
 const StudentDetailModule = ({ studentId, onViewSession, onBack }: { studentId: string | number, onViewSession: (id:number, mode: 'view'|'edit'|'feedback') => void, onBack: () => void }) => {
     const [loading, setLoading] = useState(true);
     const [student, setStudent] = useState<StudentProfileDetail | null>(null);
@@ -847,7 +714,7 @@ const StudentDetailModule = ({ studentId, onViewSession, onBack }: { studentId: 
 };
 
 // ============================================================================
-// 6. İÇERİK VE SORU YÖNETİMİ
+// 6. QUESTION MANAGER
 // ============================================================================
 const QuestionManager = () => {
     const [questions, setQuestions] = useState<Question[]>([]);
@@ -917,26 +784,54 @@ const ContentEditor = ({ prefixFilter, title }: { prefixFilter: string, title: s
     );
 };
 
-// --- GENERIC USER MANAGER ---
-const GenericUserManager = ({ title, data, columns, onAdd, onEdit, onDelete, formFields }: any) => {
+// --- GENERIC USER MANAGER (KULLANICI LİSTESİ İÇİN) ---
+const GenericUserManager = ({ title, data, columns, onAdd, onDelete, formFields, loading }: any) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [form] = Form.useForm();
+    
     const handleAddClick = () => { setEditingItem(null); form.resetFields(); setIsModalOpen(true); };
-    const handleEditClick = (record: any) => { setEditingItem(record); form.setFieldsValue(record); setIsModalOpen(true); };
-    const handleSave = (values: any) => { onAdd(values, editingItem); setIsModalOpen(false); };
-    const enhancedColumns = [...columns, { title: 'İşlem', key: 'action', width: 100, align:'center', render: (_:any, r: any) => (<Space><Button size="small" icon={<EditOutlined />} onClick={() => handleEditClick(r)} /><Popconfirm title="Sil?" onConfirm={() => onDelete(r.id)}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm></Space>) }];
+    
+    const handleEditClick = (record: any) => { 
+        setEditingItem(record); 
+        form.setFieldsValue(record); 
+        setIsModalOpen(true); 
+    };
+    
+    const handleSave = async (values: any) => { 
+        await onAdd(values, editingItem); 
+        setIsModalOpen(false); 
+    };
+    
+    const enhancedColumns = [...columns, { title: 'İşlem', key: 'action', width: 100, align:'center' as const, render: (_:any, r: any) => (<Space><Button size="small" icon={<EditOutlined />} onClick={() => handleEditClick(r)} /><Popconfirm title="Sil?" onConfirm={() => onDelete(r.id)}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm></Space>) }];
     
     return (
         <Card style={cardStyle} title={<Space><TeamOutlined style={{color:PRIMARY_COLOR}}/> {title}</Space>} extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddClick} style={{backgroundColor: PRIMARY_COLOR}}>Ekle</Button>} styles={{ body: { padding: 24 } }}>
-            <Table dataSource={data} columns={enhancedColumns} rowKey="id" scroll={{x: 600}} size="middle" />
-            <Modal title={editingItem ? "Düzenle" : "Ekle"} open={isModalOpen} onCancel={() => setIsModalOpen(false)} onOk={form.submit} destroyOnClose centered><Form form={form} layout="vertical" onFinish={handleSave} initialValues={{isActive: true}}>{formFields}</Form></Modal>
+            <Table 
+                dataSource={data} 
+                columns={enhancedColumns} 
+                rowKey="id" 
+                scroll={{x: 600}} 
+                size="middle" 
+                loading={loading}
+            />
+            <Modal 
+                title={editingItem ? "Düzenle" : "Ekle"} 
+                open={isModalOpen} 
+                onCancel={() => setIsModalOpen(false)} 
+                onOk={form.submit}
+                destroyOnClose 
+                centered>
+                <Form form={form} layout="vertical" onFinish={handleSave} initialValues={{isActive: true}}>
+                    {formFields}
+                </Form>
+            </Modal>
         </Card>
     );
 };
 
 // ============================================================================
-// 7. ANA ADMIN PANEL (ROUTING VE BİRLEŞTİRME)
+// 7. ANA ADMIN PANEL (MAIN EXPORT)
 // ============================================================================
 const AdminPanel = () => {
     const navigate = useNavigate();
@@ -948,11 +843,58 @@ const AdminPanel = () => {
     const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
     const [sessionViewMode, setSessionViewMode] = useState<'view'|'edit'|'feedback'>('view');
     
-    // Local state for generic managers (Backend API yoksa UI test için)
-    const [users, setUsers] = useState([{id:'1', userName:'admin', email:'admin@boun.edu.tr', role:'Admin', isActive: true}]);
-    const [therapists, setTherapists] = useState([{id:1, firstName:'Ayşe', lastName:'Yılmaz', email:'ayse@boun.edu.tr', title:'Psk.', isActive:true}]);
-    const [secretaries, setSecretaries] = useState([{ id: 1, firstName: 'Zeynep', lastName: 'Demir', email: 'zeynep.demir@boun.edu.tr', campus: 'Kuzey Kampüs', isActive: true }]);
+    // --- CANLI VERİ STATE'LERİ ---
+    const [users, setUsers] = useState<any[]>([]);
+    const [therapists, setTherapists] = useState<any[]>([]);
+    const [secretaries, setSecretaries] = useState<any[]>([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+    const [loadingTherapists, setLoadingTherapists] = useState(false);
+    const [loadingSecretaries, setLoadingSecretaries] = useState(false);
+    
+    // --- VERİ YÜKLEME FONKSİYONLARI (CANLI API) ---
+    const loadUsers = async () => {
+        setLoadingUsers(true);
+        try {
+            const data = await agent.Users.list(); 
+            setUsers(data || []);
+        } catch (e) {
+            message.error('Kullanıcı listesi yüklenemedi. (API Hata)');
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
 
+    const loadTherapists = async () => {
+        setLoadingTherapists(true);
+        try {
+            const data = await agent.Therapists.list(); 
+            setTherapists(data || []);
+        } catch (e) {
+            message.error('Terapist listesi yüklenemedi. (API Hata)');
+        } finally {
+            setLoadingTherapists(false);
+        }
+    };
+
+    const loadSecretaries = async () => {
+        setLoadingSecretaries(true);
+        try {
+            const data = await agent.Secretaries.list(); 
+            setSecretaries(data || []);
+        } catch (e) {
+            message.error('Sekreter listesi yüklenemedi. (API Hata)');
+        } finally {
+            setLoadingSecretaries(false);
+        }
+    };
+
+    useEffect(() => {
+        // İlgili tab aktif olduğunda veriyi çek
+        if (activeTab === '2') loadUsers();
+        if (activeTab === '3') loadTherapists();
+        if (activeTab === '4') loadSecretaries();
+    }, [activeTab]);
+    
     useEffect(() => { 
         if (location.state && location.state.targetTab) { 
             setActiveTab(location.state.targetTab); 
@@ -978,8 +920,20 @@ const AdminPanel = () => {
         { key: '0', icon: <DashboardOutlined />, label: 'Panel Özeti' },
         { key: 'search', icon: <SearchOutlined />, label: 'Öğrenci İşlemleri' },
         { type: 'divider' },
-        { key: 'therapist-view', icon: <MedicineBoxOutlined />, label: 'Terapist Paneli (Demo)' },
-        { key: 'secretary-view', icon: <CalendarOutlined />, label: 'Sekreter Paneli (Demo)' },
+        { 
+            key: 'definitions', 
+            icon: <AppstoreOutlined />, 
+            label: 'Tanımlamalar', 
+            children: [
+                { key: 'def-campus', icon: <BuildOutlined />, label: 'Kampüsler' },
+                { key: 'def-types', icon: <IdcardOutlined />, label: 'Uzman Tipleri' },
+                { key: 'def-roles', icon: <UnlockOutlined />, label: 'Roller' },
+                { key: 'def-holidays', icon: <ScheduleOutlined />, label: 'Resmi Tatiller' },
+            ]
+        },
+        { type: 'divider' },
+        { key: 'therapist-view', icon: <MedicineBoxOutlined />, label: 'Terapist Paneli' },
+        { key: 'secretary-view', icon: <CalendarOutlined />, label: 'Sekreter Paneli' },
         { type: 'divider' },
         { key: '1', icon: <FormOutlined />, label: 'İçerik Ayarları' },
         { key: '2', icon: <UserOutlined />, label: 'Kullanıcılar' },
@@ -988,7 +942,7 @@ const AdminPanel = () => {
     ];
 
     const MenuContent = () => (
-        <Menu theme="dark" selectedKeys={[ ['student-detail', 'session-detail'].includes(activeTab) ? 'search' : activeTab ]} mode="inline" items={menuItems} onClick={(e) => handleMenuClick(e.key)} style={{border: 'none', background: 'transparent', fontFamily: BOUN_FONT}} />
+        <Menu theme="dark" selectedKeys={[ ['student-detail', 'session-detail'].includes(activeTab) ? 'search' : activeTab ]} defaultOpenKeys={['definitions']} mode="inline" items={menuItems} onClick={(e) => handleMenuClick(e.key)} style={{border: 'none', background: 'transparent', fontFamily: BOUN_FONT}} />
     );
 
     return (
@@ -1010,6 +964,7 @@ const AdminPanel = () => {
                         <span style={{ fontSize: 18, fontWeight: 600, color: PRIMARY_COLOR, marginLeft: 10, fontFamily: BOUN_FONT }}>
                             {activeTab === '0' && 'Genel Bakış'}
                             {activeTab === 'search' && 'Öğrenci Yönetimi'}
+                            {activeTab.startsWith('def-') && 'Sistem Tanımlamaları'}
                             {['1','2','3','4'].includes(activeTab) && 'Sistem Ayarları'}
                             {activeTab === 'therapist-view' && 'Terapist Paneli'}
                             {activeTab === 'secretary-view' && 'Sekreter Paneli'}
@@ -1021,15 +976,21 @@ const AdminPanel = () => {
                     <div style={{ maxWidth: 1600, margin: '0 auto' }}>
                         {activeTab === '0' && <Dashboard />}
                         
-                        {/* ÖZEL PANELLER */}
-                        {activeTab === 'therapist-view' && <TherapistDashboard />}
-                        {activeTab === 'secretary-view' && <SecretaryDashboard />}
+                        {/* MODÜLLERİ ÇAĞIRMA (Yeni Dosyalar) */}
+                        {activeTab === 'therapist-view' && <TherapistModule />}
+                        {activeTab === 'secretary-view' && <SecretaryModule />}
 
                         {/* ÖĞRENCİ YÖNETİMİ */}
                         {activeTab === 'search' && <StudentSearchModule onViewStudent={handleViewStudent} />}
                         {activeTab === 'student-detail' && selectedStudentId && <StudentDetailModule studentId={selectedStudentId} onViewSession={handleViewSession} onBack={handleBackToSearch} />}
                         {activeTab === 'session-detail' && selectedSessionId && <SessionDetailModule sessionId={selectedSessionId} mode={sessionViewMode} onBack={handleBackToStudent} />}
                         
+                        {/* TANIMLAMALAR */}
+                        {activeTab === 'def-campus' && <DefinitionManager defaultTab="1" />}
+                        {activeTab === 'def-types' && <DefinitionManager defaultTab="2" />}
+                        {activeTab === 'def-roles' && <DefinitionManager defaultTab="3" />}
+                        {activeTab === 'def-holidays' && <DefinitionManager defaultTab="4" />}
+
                         {/* İÇERİK VE FORM */}
                         {activeTab === '1' && (
                             <div style={{animation:'fadeIn 0.3s'}}>
@@ -1042,41 +1003,72 @@ const AdminPanel = () => {
                             </div>
                         )}
 
-                        {/* KULLANICI YÖNETİMİ (Generic) */}
+                        {/* KULLANICI YÖNETİMİ (Canlı API Bağlantısı) */}
                         {activeTab === '2' && (
                             <GenericUserManager 
                                 title="Kullanıcı Listesi" 
                                 data={users} 
+                                loading={loadingUsers} 
                                 columns={[
                                     { title: 'Kullanıcı Adı', dataIndex: 'userName' }, 
                                     { title: 'Email', dataIndex: 'email' }, 
-                                    { title: 'Rol', dataIndex: 'role', render: (r:string) => <Tag>{r}</Tag> },
+                                    { title: 'Rol', dataIndex: 'userType', render: (r:string) => <Tag>{r || 'Rol Yok'}</Tag> },
                                     { title: 'Durum', dataIndex: 'isActive', render: (a:boolean)=>(a?<Tag color="green">Aktif</Tag>:<Tag color="red">Pasif</Tag>) }
                                 ]} 
-                                onAdd={(v:any, old:any) => setUsers(old ? users.map(u=>u.id===old.id?{...u,...v}:u) : [...users,{id:Date.now().toString(),...v}])} 
-                                onDelete={(id:any)=>setUsers(users.filter(u=>u.id!==id))} 
+                                onAdd={async (v:any, old:any) => {
+                                    try {
+                                        if (old) await agent.Users.update(old.id, v);
+                                        else await agent.Users.create(v);
+                                        message.success(`Kullanıcı başarıyla ${old ? 'güncellendi' : 'eklendi'}.`);
+                                        await loadUsers();
+                                    } catch (e) {
+                                        message.error('Kullanıcı işlemi başarısız oldu.');
+                                    }
+                                }} 
+                                onDelete={async (id:any) => {
+                                    try {
+                                        await agent.Users.delete(id);
+                                        message.success('Kullanıcı başarıyla silindi.');
+                                        await loadUsers();
+                                    } catch (e) {
+                                        message.error('Silme işlemi başarısız oldu.');
+                                    }
+                                }}
                                 formFields={
                                     <>
                                         <Form.Item name="userName" label="Kullanıcı Adı" rules={[{required:true}]}><Input/></Form.Item>
                                         <Form.Item name="email" label="Email" rules={[{required:true}]}><Input/></Form.Item>
-                                        <Form.Item name="role" label="Rol" rules={[{required:true}]}><Select><Option value="Admin">Admin</Option><Option value="Secretary">Sekreter</Option><Option value="Therapist">Terapist</Option></Select></Form.Item>
-                                        <Form.Item name="isActive" label="Durum" valuePropName="checked" initialValue={true}><Switch checkedChildren="Aktif" unCheckedChildren="Pasif" /></Form.Item>
+                                        <Form.Item name="userType" label="Rol" rules={[{required:true}]}><Select><Option value="Admin">Admin</Option><Option value="Sekreter">Sekreter</Option><Option value="Terapist">Terapist</Option></Select></Form.Item>
+                                        <Form.Item name="isActive" label="Durum" valuePropName="checked">
+                                        <Switch checkedChildren="Aktif" unCheckedChildren="Pasif" />
+                                    </Form.Item>
                                     </>
                                 } 
                             />
                         )}
+                        {/* TERAPİST YÖNETİMİ */}
                         {activeTab === '3' && (
                             <GenericUserManager 
                                 title="Terapist Listesi" 
                                 data={therapists} 
+                                loading={loadingTherapists} 
                                 columns={[
                                     { title: 'Unvan', dataIndex: 'title', width:80 }, 
                                     { title: 'Ad Soyad', render: (r:any)=>`${r.firstName} ${r.lastName}` }, 
                                     { title: 'Email', dataIndex: 'email' }, 
                                     { title: 'Durum', dataIndex: 'isActive', render: (a:boolean)=>(a?<Tag color="green">Aktif</Tag>:<Tag color="red">Pasif</Tag>) }
                                 ]} 
-                                onAdd={(v:any, old:any) => setTherapists(old ? therapists.map(t=>t.id===old.id?{...t,...v}:t) : [...therapists,{id:Date.now(),...v}])} 
-                                onDelete={(id:any)=>setTherapists(therapists.filter(t=>t.id!==id))} 
+                                onAdd={async (v:any, old:any) => {
+                                    try {
+                                        if (old) await agent.Therapists.update(old.id, v);
+                                        else await agent.Therapists.create(v);
+                                        message.success(`Terapist başarıyla ${old ? 'güncellendi' : 'eklendi'}.`);
+                                        await loadTherapists();
+                                    } catch (e) { message.error('İşlem başarısız.'); }
+                                }} 
+                                onDelete={async (id:any) => {
+                                    try { await agent.Therapists.delete(id); message.success('Silindi.'); await loadTherapists(); } catch { message.error('Hata.'); }
+                                }}
                                 formFields={
                                     <>
                                         <Row gutter={16}>
@@ -1090,34 +1082,41 @@ const AdminPanel = () => {
                                 } 
                             />
                         )}
+                        {/* SEKRETER YÖNETİMİ */}
                         {activeTab === '4' && (
                             <GenericUserManager 
                                 title="Sekreter Listesi" 
                                 data={secretaries} 
+                                loading={loadingSecretaries} 
                                 columns={[
                                     { title: 'Ad', dataIndex: 'firstName', key: 'firstName' },
                                     { title: 'Soyad', dataIndex: 'lastName', key: 'lastName' },
                                     { title: 'Email', dataIndex: 'email', key: 'email' },
-                                    { title: 'Kampüs', dataIndex: 'campus', key: 'campus', render: (t:string) => <Tag color="blue">{t}</Tag> },
+                                    { title: 'Rol', dataIndex: 'userType', render: (t:string) => <Tag color="blue">{t}</Tag> },
                                     { title: 'Durum', dataIndex: 'isActive', key: 'isActive', render: (a:boolean)=>(a?<Tag color="green">Aktif</Tag>:<Tag color="red">Pasif</Tag>) }
                                 ]} 
-                                onAdd={(v:any, old:any) => setSecretaries(old ? secretaries.map(s=>s.id===old.id?{...s,...v}:s) : [...secretaries,{id:Date.now(),...v}])} 
-                                onDelete={(id:any)=>setSecretaries(secretaries.filter(s=>s.id!==id))} 
+                                onAdd={async (v:any, old:any) => {
+                                    try {
+                                        // Sekreterler de aslında birer User olduğu için Users endpointi kullanılabilir veya özel endpoint
+                                        // Burada admin panelindeki mantığa göre Users üzerinden işlem yapıyoruz
+                                        const payload = { ...v, userType: 'Sekreter' };
+                                        if (old) await agent.Users.update(old.id, payload);
+                                        else await agent.Users.create(payload);
+                                        message.success(`İşlem başarılı.`);
+                                        await loadSecretaries();
+                                    } catch (e) { message.error('Hata.'); }
+                                }} 
+                                onDelete={async (id:any) => {
+                                    try { await agent.Users.delete(id); message.success('Silindi.'); await loadSecretaries(); } catch { message.error('Hata.'); }
+                                }}
                                 formFields={
                                     <>
                                         <Row gutter={16}>
                                             <Col span={12}><Form.Item name="firstName" label="Ad" rules={[{required:true}]}><Input /></Form.Item></Col>
                                             <Col span={12}><Form.Item name="lastName" label="Soyad" rules={[{required:true}]}><Input /></Form.Item></Col>
                                         </Row>
+                                        <Form.Item name="userName" label="Kullanıcı Adı" rules={[{required:true}]}><Input /></Form.Item>
                                         <Form.Item name="email" label="Email" rules={[{required:true, type:'email'}]}><Input prefix={<UserOutlined />} /></Form.Item>
-                                        <Form.Item name="campus" label="Görev Yeri (Kampüs)" rules={[{required:true}]}>
-                                            <Select>
-                                                <Option value="Kuzey Kampüs">Kuzey Kampüs</Option>
-                                                <Option value="Güney Kampüs">Güney Kampüs</Option>
-                                                <Option value="Kandilli Kampüsü">Kandilli Kampüsü</Option>
-                                                <Option value="Sarıtepe Kampüsü">Sarıtepe Kampüsü</Option>
-                                            </Select>
-                                        </Form.Item>
                                         <Form.Item name="isActive" label="Durum" valuePropName="checked" initialValue={true}>
                                             <Switch checkedChildren="Aktif" unCheckedChildren="Pasif" />
                                         </Form.Item>

@@ -1,6 +1,7 @@
 ﻿using Burem.API.Abstract;
 using Burem.API.DTOs;
 using Burem.API.Helpers;
+using Burem.Data;
 using Burem.Data.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -140,7 +141,7 @@ namespace Burem.API.Concrete
                 .Include(s => s.Student)
                 .Include(s => s.Advisor)
                 // Danışmanı olmayan (0/null) veya Danışmanı Terapist olmayan (Admin/Sistem) kayıtlar
-                .Where(s => (s.AdvisorId == 0 || s.AdvisorId == null || (s.Advisor != null && s.Advisor.UserType != 4))
+                .Where(s => (s.AdvisorId == 0 || s.AdvisorId == null || (s.Advisor != null && s.Advisor.RoleId != 4))
                             && s.IsArchived == false)
                 .OrderByDescending(s => s.SessionDate) // En yeniden eskiye
                 .ToListAsync();

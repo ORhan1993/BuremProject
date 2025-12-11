@@ -1,5 +1,6 @@
 ﻿using Burem.API.Abstract;
 using Burem.API.DTOs;
+using Burem.Data;
 using Burem.Data.Enums;
 using Burem.Data.Models;
 using Microsoft.EntityFrameworkCore;

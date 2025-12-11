@@ -1,6 +1,7 @@
 using Burem.API;
 using Burem.API.Abstract;
 using Burem.API.Concrete;
+using Burem.Data;
 using Burem.Data.Models; 
 using Microsoft.EntityFrameworkCore;
 
@@ -49,6 +50,8 @@ builder.Services.AddScoped<ISessionService, SessionConcrete>();
 builder.Services.AddScoped<ISecurityService, SecurityConcrete>();
 builder.Services.AddScoped<IAppointmentService, AppointmentConcrete>();
 builder.Services.AddScoped<IFormService, FormConcrete>();
+builder.Services.AddScoped<IDefinitionService, DefinitionConcrete>();
+builder.Services.AddScoped<IUserService, UserConcrete>();
 
 
 var app = builder.Build();

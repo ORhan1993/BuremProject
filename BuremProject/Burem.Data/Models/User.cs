@@ -1,64 +1,37 @@
 ﻿using Burem.Data.Enums;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Burem.Data.Models
 {
-    public partial class User
+    public class User
     {
-        public User()
-        {
-            StudentAppointments = new HashSet<Appointment>();
-            TherapistAppointments = new HashSet<Appointment>();
-        }
-
-        [Key]
         public int Id { get; set; }
+        public string UserName { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
 
-        [Required]
-        [StringLength(150)]
-        public string FirstName { get; set; } = null!;
+        // Düzeltme: İlişkisel veritabanı mantığı için UserType int olmalı (Role ID)
+        [Column("UserType")]
+        public int RoleId { get; set; }
 
-        [Required]
-        [StringLength(150)]
-        public string LastName { get; set; } = null!;
+        public string? Email { get; set; }
 
-        [Required]
-        public string UserName { get; set; } = null!;
+        public string? Password { get; set; }
 
-        // --- ROL AYARLARI ---
+        public string? TherapistCategory { get; set; }
 
-        // Veritabanındaki 'int' değer (1, 2, 3, 4)
-        public int UserType { get; set; }
+        // Düzeltme: Senin yapında IsDeleted yok, IsActive var.
+        public int IsDeleted { get; set; }
 
-       
+        public int Status { get; set; }
 
-        // İlişki: Veritabanındaki 'UserRoles' tablosuna gider
-        [ForeignKey("UserType")]
-        public virtual Role Role { get; set; } = null!;
 
-        // Kod içinde kullanım: int değerini Enum'a çevirir
-        [NotMapped]
-        public UserRole RoleEnum
-        {
-            get => (UserRole)UserType;
-            set => UserType = (int)value;
-        }
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-        public int Status { get; set; } = 1;
-        public int IsDeleted { get; set; } = 0;
-
-        // --- RANDEVU İLİŞKİLERİ ---
-        [InverseProperty("User")]
-        public virtual ICollection<Appointment> StudentAppointments { get; set; }
-
-        [InverseProperty("Therapist")]
-        public virtual ICollection<Appointment> TherapistAppointments { get; set; }
-
-        public virtual ICollection<TherapistSchedule> Schedules { get; set; } = new List<TherapistSchedule>();
-
-        public TherapistCategory? TherapistCategory { get; set; }
+        // Navigation Property (İsteğe bağlı ama önerilir)
+         public virtual Role Role { get; set; }
+        
+        public ICollection<Appointment> StudentAppointments { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Burem.API.DTOs;
+using Burem.Data;
 using Burem.Data.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

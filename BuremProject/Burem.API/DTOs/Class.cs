@@ -1,9 +1,15 @@
 ﻿namespace Burem.API.DTOs
 {
-    public class AddHolidayDto
+    public class TherapistAppointmentDto
     {
-        public string Date { get; set; }       // Örn: "2025-01-01"
-        public string Description { get; set; } // Örn: "Yoğun Kar Yağışı Tatili"
-        public int CurrentUserRoleId { get; set; } // İşlemi yapan kişinin rolü
+        public int Id { get; set; }
+        public string StudentName { get; set; }
+        public string StudentId { get; set; } // Öğrenci No
+        public string Date { get; set; }
+        public string Time { get; set; }
+        public string Type { get; set; } // Online / Yüz Yüze
+        public string Status { get; set; }
+        public string Note { get; set; }
+        public int CurrentSessionCount { get; set; }
     }
 }

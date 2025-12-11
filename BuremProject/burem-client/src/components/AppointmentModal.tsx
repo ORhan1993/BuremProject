@@ -4,6 +4,10 @@ import { UserOutlined, CalendarOutlined, CheckCircleOutlined, EditOutlined } fro
 import agent from '../api/agent';
 import type { TherapistAvailability } from '../api/agent';
 import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+
+// Dayjs'in özel formatları (dd.MM.yyyy) okuyabilmesi için eklenti
+dayjs.extend(customParseFormat);
 
 const { Step } = Steps;
 const { Option } = Select;
@@ -42,29 +46,33 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName, studentCa
     const [form] = Form.useForm();
     const isEditMode = !!existingAppointment;
 
+    // Modal açıldığında state'leri yönet
     useEffect(() => {
         if (visible) {
             if (isEditMode && existingAppointment) {
-                // --- DÜZENLEME MODU: Mevcut verileri doldur ---
-                const dateObj = existingAppointment.appointmentDate ? dayjs(existingAppointment.appointmentDate) : null;
+                // --- DÜZENLEME MODU ---
+                // Backend'den 'dd.MM.yyyy' string geliyor, onu dayjs objesine çeviriyoruz
+                const dateObj = existingAppointment.date 
+                    ? dayjs(existingAppointment.date, 'DD.MM.YYYY') 
+                    : null;
                 
                 form.setFieldsValue({
                     date: dateObj,
-                    time: dateObj ? dateObj.format('HH:mm') : null,
-                    type: existingAppointment.appointmentType,
+                    time: existingAppointment.time,
+                    type: existingAppointment.type,
                     roomLink: existingAppointment.locationOrLink
                 });
 
-                // State'leri doldur
-                setStatus(existingAppointment.status || 0);
+                // Status enum veya string gelebilir, garantiye alalım
+                setStatus(Number(existingAppointment.status) || 0); 
                 setCancelReason(existingAppointment.cancellationReason || "");
-                setTherapistNotes(existingAppointment.therapistNotes || "");
+                setTherapistNotes(existingAppointment.note || ""); // Backend DTO'da 'Note' olarak geliyor
                 setRiskLevel(existingAppointment.riskLevel);
                 setReferral(existingAppointment.referralDestination);
                 
-                // Terapist bilgisi
+                // Görsel amaçlı seçili terapisti set et
                 setSelectedTherapist({
-                    id: existingAppointment.therapistId,
+                    id: existingAppointment.therapistId || 0,
                     name: existingAppointment.therapistName || "Mevcut Terapist",
                     campus: "Tanımsız", 
                     category: "Bilinmiyor",
@@ -73,61 +81,40 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName, studentCa
                     workingDays: []
                 });
 
-                setCurrentStep(1);
+                setCurrentStep(1); // Direkt detay ekranına git
             } else {
                 // --- YENİ KAYIT MODU ---
+                resetFormState();
                 
-                // 1. Önce form ve state'leri temizle
-                setCurrentStep(0);
-                form.resetFields();
-                setSelectedTherapist(null);
-                setTherapists([]);
-                setStatus(0);
-                setCancelReason("");
-                setTherapistNotes("");
-                setRiskLevel(undefined);
-                setReferral(undefined);
-
-                // 2. [OTOMATİK DOLDURMA] Backend'den öğrenci tercihini çek ve formu doldur
+                // Başvuru tercihine göre form doldur (Otomatik)
                 if (sessionId) {
-                    // 'any' tipi kullanarak hızlı çözüm, normalde SessionDetailDTO olmalı
                     agent.Sessions.getById(sessionId).then((data: any) => {
-                        
-                        // KONSOLDA KONTROL EDİN: Backend'den ne geliyor?
-                        console.log("Gelen Görüşme Tercihi:", data.preferredMeetingType);
-
-                        let autoType = undefined;
-                        // Gelen veriyi güvenli hale getir (küçük harfe çevir)
                         const typeFromApi = (data.preferredMeetingType || "").toLowerCase();
-
-                        // Eşleştirme Mantığı
-                        if (typeFromApi.includes("çevrimiçi")) {
-                            autoType = "Çevrimiçi";
-                        } 
-                        else if (typeFromApi.includes("yüzyüze")) {
-                            // DİKKAT: Buradaki "Yüz Yüze" değeri, aşağıdaki Radio value ile BİREBİR AYNI olmalı (boşluklu)
-                            autoType = "Yüzyüze"; 
-                        }
-
-                        // Formu güncelle
-                        if (autoType) {
-                            form.setFieldsValue({
-                                type: autoType
-                            });
-                        }
-                    }).catch(err => {
-                        console.error("Session detayı çekilemedi:", err);
-                    });
+                        if (typeFromApi.includes("çevrimiçi")) form.setFieldsValue({ type: "Çevrimiçi" });
+                        else if (typeFromApi.includes("yüzyüze")) form.setFieldsValue({ type: "Yüzyüze" });
+                    }).catch(err => console.error("Session detayı çekilemedi:", err));
                 }
             }
         }
-    }, [visible, isEditMode, existingAppointment, form, sessionId]);
+    }, [visible, isEditMode, existingAppointment, sessionId, form]);
+
+    const resetFormState = () => {
+        setCurrentStep(0);
+        form.resetFields();
+        setSelectedTherapist(null);
+        setTherapists([]);
+        setStatus(0);
+        setCancelReason("");
+        setTherapistNotes("");
+        setRiskLevel(undefined);
+        setReferral(undefined);
+    };
 
     const handleCategoryChange = async (category: string) => {
         setLoading(true);
         try {
             const data = await agent.Appointments.getAvailableTherapists(category);
-            setTherapists(data);
+            setTherapists(data || []);
         } catch(e) {
             message.error("Uzman listesi alınamadı.");
         } finally {
@@ -135,12 +122,20 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName, studentCa
         }
     };
 
-    const handleStep1Next = async () => {
+    const handleStep1Next = () => {
+        if (!selectedTherapist && !isEditMode) {
+            message.error("Lütfen bir terapist seçiniz.");
+            return;
+        }
+        setCurrentStep(1);
+    };
+
+    const handleStep2Next = async () => {
         try {
             await form.validateFields(['date', 'time', 'type', 'roomLink']);
             setCurrentStep(2);
         } catch (error) {
-            message.error("Lütfen tüm zorunlu alanları doldurunuz.");
+            message.error("Lütfen zorunlu alanları doldurunuz.");
         }
     };
 
@@ -149,7 +144,7 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName, studentCa
             setLoading(true);
             
             if (isEditMode) {
-                // --- GÜNCELLEME İŞLEMİ ---
+                // --- GÜNCELLEME ---
                 const updateData = {
                     appointmentId: existingAppointment.id, 
                     status: status, 
@@ -159,35 +154,36 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName, studentCa
                     referralDestination: referral
                 };
 
-                await agent.Appointments.updateStatus(updateData); // agent.ts'de tanımlı olmalı
+                // agent.ts dosyanızda bu metodun olduğundan emin olun (Reports veya Appointments altında)
+                await agent.Reports.updateAppointmentStatus(updateData.appointmentId, updateData.status, updateData.reason); 
                 
-                message.success('Randevu durumu ve notlar güncellendi.');
+                message.success('Randevu güncellendi.');
             } else {
-                // --- YENİ KAYIT İŞLEMİ ---
+                // --- YENİ KAYIT ---
                 const values = form.getFieldsValue();
-                const formattedDate = values.date ? dayjs(values.date).format('DD.MM.YYYY') : '';
-
+                
                 if (!selectedTherapist) {
-                    message.error("Terapist seçimi yapılmadı.");
+                    message.error("Terapist seçimi kayboldu.");
                     return;
                 }
 
                 await agent.Appointments.create({
-                    sessionId,
+                    sessionId: sessionId,
                     therapistId: selectedTherapist.id,
-                    date: formattedDate,
-                    time: values.time,
-                    type: values.type,
-                    roomLink: values.roomLink
+                    // Backend CreateAppointmentDto 'yyyy-MM-dd' bekliyorsa:
+                    appointmentDate: values.date ? values.date.format('YYYY-MM-DD') : '', 
+                    appointmentHour: values.time,
+                    appointmentType: values.type,
+                    locationOrLink: values.roomLink
                 });
-                message.success('Randevu oluşturuldu ve öğrenciye e-posta gönderildi.');
+                message.success('Randevu oluşturuldu.');
             }
 
             onCancel(); 
         } catch (error: any) {
             console.error(error);
-            const errorMsg = error.response?.data?.message || 'İşlem başarısız.';
-            message.error(errorMsg);
+            const msg = error.response?.data?.message || 'İşlem başarısız.';
+            message.error(msg);
         } finally {
             setLoading(false);
         }
@@ -213,31 +209,32 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName, studentCa
 
     return (
         <Modal
-            title={isEditMode ? "Randevu Düzenle / Sonuçlandır" : "Terapiste Yönlendir ve Randevu Oluştur"}
+            title={isEditMode ? "Randevu Düzenle" : "Yeni Randevu Oluştur"}
             open={visible}
             onCancel={onCancel}
             width={800}
             footer={null}
-            destroyOnClose={true}
+            destroyOnClose={true} // Modal kapanınca içeriği sıfırla
             maskClosable={false}
         >
             <Steps current={currentStep} style={{ marginBottom: 20 }}>
                 <Step title="Uzman" icon={<UserOutlined />} disabled={isEditMode} />
                 <Step title="Zaman & Yer" icon={<CalendarOutlined />} />
-                <Step title={isEditMode ? "Sonuçlandır" : "Onay"} icon={isEditMode ? <EditOutlined /> : <CheckCircleOutlined />} />
+                <Step title="Onay" icon={<CheckCircleOutlined />} />
             </Steps>
 
-            <Form form={form} layout="vertical" preserve={true}>
+            <Form form={form} layout="vertical" preserve={false}>
+                
                 {/* ADIM 0: UZMAN SEÇİMİ */}
                 <div style={{ display: currentStep === 0 ? 'block' : 'none' }}>
                     {!isEditMode && (
                         <>
                             <Form.Item label="Uzman Kategorisi">
                                 <Select placeholder="Kategori Seçin" onChange={handleCategoryChange}>
-                                    <Option value="BÜREM Uzmanı">BÜREM Uzmanları</Option>
+                                    <Option value="Tümü">Tümü</Option>
                                     <Option value="Deneyimli Uzman">Deneyimli Uzman</Option>
                                     <Option value="Gönüllü Uzman">Gönüllü Uzman</Option>
-                                    <Option value="İndirimli">İndirimli Uzman</Option>
+                                    <Option value="BÜREM Uzmanı">BÜREM Uzmanı</Option>
                                 </Select>
                             </Form.Item>
 
@@ -248,19 +245,19 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName, studentCa
                                 pagination={false} 
                                 size="small"
                                 loading={loading}
-                                locale={{emptyText: 'Kategori seçiniz.'}}
-                                scroll={{ y: 300 }}
+                                locale={{emptyText: 'Lütfen bir kategori seçiniz.'}}
+                                scroll={{ y: 250 }}
                             />
                         </>
                     )}
                     <div style={{ marginTop: 20, textAlign: 'right' }}>
-                        <Button type="primary" disabled={!selectedTherapist} onClick={() => setCurrentStep(1)}>İleri</Button>
+                        {!isEditMode && <Button type="primary" disabled={!selectedTherapist} onClick={handleStep1Next}>İleri</Button>}
                     </div>
                 </div>
 
                 {/* ADIM 1: TARİH VE YER */}
                 <div style={{ display: currentStep === 1 ? 'block' : 'none' }}>
-                    <Descriptions title="Seçilen Uzman" size="small" bordered style={{marginBottom: 20}} contentStyle={{ fontWeight: 'bold' }}>
+                    <Descriptions title="Seçilen Uzman" size="small" bordered style={{marginBottom: 20}}>
                         <Descriptions.Item label="Ad Soyad">{selectedTherapist?.name}</Descriptions.Item>
                         <Descriptions.Item label="Kampüs">{selectedTherapist?.campus}</Descriptions.Item>
                     </Descriptions>
@@ -271,6 +268,7 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName, studentCa
                         </Form.Item>
                         <Form.Item name="time" label="Saat" rules={[{ required: true, message: 'Saat seçiniz' }]} style={{ flex: 1 }}>
                             <Select placeholder="Saat Seçiniz" disabled={isEditMode}>
+                                {/* Bu saatleri dinamik yapmak isterseniz GetAvailableHours endpointini çağırabilirsiniz */}
                                 {["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"].map(t => <Option key={t} value={t}>{t}</Option>)}
                             </Select>
                         </Form.Item>
@@ -300,113 +298,52 @@ const AppointmentModal = ({ visible, onCancel, sessionId, studentName, studentCa
                             </Form.Item>
                         )}
                     </Form.Item>
-                    
+
                     {isEditMode && (
-                        <div className="p-4 bg-blue-50 border border-blue-200 rounded mb-4">
-                            <h4 className="font-bold text-gray-700 mb-2">Randevu Sonuçlandırma</h4>
+                        <div className="p-4 bg-gray-50 border rounded mb-4" style={{padding: 15, background: '#f5f5f5', borderRadius: 6}}>
                             <Form.Item label="Durum">
-                                <Select value={status} onChange={(val) => setStatus(val)} className="w-full">
-                                    <Option value={AppointmentStatus.Planned}>Planlandı (Bekliyor)</Option>
-                                    <Option value={AppointmentStatus.Completed}>✅ Tamamlandı (Geldi)</Option>
-                                    <Option value={AppointmentStatus.NoShow}>❌ Gelmedi (No-Show)</Option>
-                                    <Option value={AppointmentStatus.Cancelled}>🚫 İptal Edildi</Option>
+                                <Select value={status} onChange={setStatus}>
+                                    <Option value={AppointmentStatus.Planned}>Planlandı</Option>
+                                    <Option value={AppointmentStatus.Completed}>Tamamlandı</Option>
+                                    <Option value={AppointmentStatus.NoShow}>Gelmedi</Option>
+                                    <Option value={AppointmentStatus.Cancelled}>İptal</Option>
                                 </Select>
                             </Form.Item>
+                            
+                            {(status === AppointmentStatus.Cancelled || status === AppointmentStatus.NoShow) && (
+                                <Form.Item label="Neden">
+                                    <TextArea rows={2} value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
+                                </Form.Item>
+                            )}
                         </div>
                     )}
 
                     <div style={{ marginTop: 20, textAlign: 'right' }}>
                         <Space>
                             {!isEditMode && <Button onClick={() => setCurrentStep(0)}>Geri</Button>}
-                            <Button type="primary" onClick={handleStep1Next}>İleri</Button>
+                            <Button type="primary" onClick={handleStep2Next}>İleri</Button>
                         </Space>
                     </div>
                 </div>
 
-                {/* ADIM 2: ONAY ve SONUÇLANDIRMA */}
+                {/* ADIM 2: ONAY */}
                 <div style={{ display: currentStep === 2 ? 'block' : 'none' }}>
-                    {!isEditMode && (
-                        <Alert message="Dikkat: Onayladığınızda öğrenciye mail gönderilecektir." type="warning" showIcon style={{ marginBottom: 20 }} />
-                    )}
-
+                    <Alert message="İşlem onaylandığında ilgili kişilere e-posta gönderilecektir." type="info" showIcon style={{ marginBottom: 20 }} />
+                    
                     <Descriptions bordered column={1}>
                         <Descriptions.Item label="Öğrenci">{studentName}</Descriptions.Item>
                         <Descriptions.Item label="Terapist">{selectedTherapist?.name}</Descriptions.Item>
-                        <Descriptions.Item label="Tarih & Saat">
+                        <Descriptions.Item label="Tarih">
                             {form.getFieldValue('date')?.format('DD.MM.YYYY')} - {form.getFieldValue('time')}
                         </Descriptions.Item>
+                        <Descriptions.Item label="Yer/Link">{form.getFieldValue('roomLink')}</Descriptions.Item>
                     </Descriptions>
-
-                    {/* DÜZENLEME MODU DETAYLARI */}
-                    {isEditMode && (
-                        <div style={{ marginTop: 20, padding: 15, background: '#f9f9f9', border: '1px solid #d9d9d9', borderRadius: 4 }}>
-                            <h4 style={{marginBottom: 10, fontWeight: 'bold'}}>Görüşme Detayları</h4>
-                            
-                            <div style={{marginBottom: 15}}>
-                                <span style={{display:'block', marginBottom: 5, fontWeight:600}}>Randevu Durumu:</span>
-                                <Select value={status} onChange={setStatus} style={{ width: '100%' }}>
-                                    <Option value={AppointmentStatus.Planned}>Planlandı</Option>
-                                    <Option value={AppointmentStatus.Completed}>Tamamlandı (Geldi)</Option>
-                                    <Option value={AppointmentStatus.NoShow}>Gelmedi (No-Show)</Option>
-                                    <Option value={AppointmentStatus.Cancelled}>İptal Edildi</Option>
-                                </Select>
-                            </div>
-
-                            {(status === AppointmentStatus.NoShow || status === AppointmentStatus.Cancelled) && (
-                                <div>
-                                    <span style={{display:'block', marginBottom: 5}}>Neden:</span>
-                                    <TextArea 
-                                        rows={2} 
-                                        value={cancelReason} 
-                                        onChange={(e) => setCancelReason(e.target.value)}
-                                        placeholder="İptal veya gelmeme nedenini giriniz..."
-                                    />
-                                </div>
-                            )}
-
-                            {status === AppointmentStatus.Completed && (
-                                <div style={{ borderTop: '1px solid #eee', paddingTop: 15, marginTop: 10 }}>
-                                    <Alert message="Aşağıdaki alanlar sadece terapistler tarafından görüntülenebilir (Gizli)." type="info" showIcon style={{ marginBottom: 15 }} />
-                                    
-                                    <Form.Item label="Görüşme Özeti / Terapist Notları">
-                                        <TextArea 
-                                            rows={4} 
-                                            value={therapistNotes}
-                                            onChange={(e) => setTherapistNotes(e.target.value)}
-                                            placeholder="Görüşme özeti, planlanan adımlar, kritik notlar..."
-                                        />
-                                    </Form.Item>
-
-                                    <div style={{ display: 'flex', gap: 10 }}>
-                                        <Form.Item label="Risk Seviyesi" style={{ flex: 1 }}>
-                                            <Select value={riskLevel} onChange={setRiskLevel} placeholder="Risk Durumu">
-                                                <Option value="Yok">Risk Yok</Option>
-                                                <Option value="Düşük">Düşük Risk</Option>
-                                                <Option value="Orta">Orta Risk</Option>
-                                                <Option value="Yüksek">Yüksek Risk</Option>
-                                            </Select>
-                                        </Form.Item>
-
-                                        <Form.Item label="Yönlendirme (Gerekirse)" style={{ flex: 1 }}>
-                                            <Select value={referral} onChange={setReferral} placeholder="Kurum Seçiniz">
-                                                <Option value="">Yok</Option>
-                                                <Option value="BÜPAM">BÜPAM</Option>
-                                                <Option value="Hastane">Hastane / Psikiyatri</Option>
-                                                <Option value="Revir">Revir</Option>
-                                                <Option value="Özel">Özel Merkez</Option>
-                                            </Select>
-                                        </Form.Item>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     <div style={{ marginTop: 20, textAlign: 'right' }}>
                         <Space>
                             <Button onClick={() => setCurrentStep(1)}>Geri</Button>
                             <Button type="primary" onClick={handleFinish} loading={loading}>
-                                {isEditMode ? "Kaydet ve Kapat" : "Randevuyu Oluştur"}
+                                {isEditMode ? "Güncelle ve Bitir" : "Randevuyu Oluştur"}
                             </Button>
                         </Space>
                     </div>

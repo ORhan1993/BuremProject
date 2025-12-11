@@ -1,6 +1,7 @@
 ﻿using Burem.API.Abstract;
 using Burem.API.DTOs;
 using Burem.API.Helpers;
+using Burem.Data;
 using Burem.Data.Models;
 using DocumentFormat.OpenXml.InkML;
 using Microsoft.Data.SqlClient;
