@@ -15,17 +15,14 @@ namespace Burem.API.Helpers
 
         /// <summary>
         /// Öğrenciye randevu bilgilendirme maili atar.
-        /// Analiz dokümanına göre Online/Yüz Yüze ayrımı yapar.
         /// </summary>
         public void SendAppointmentEmail(string toEmail, string studentName, string therapistName, string date, string time, string type, string locationOrLink)
         {
             string subject = "BÜREM Randevu Bilgilendirmesi";
             string locationHtml = "";
 
-            // --- ANALİZE GÖRE FORMAT AYRIMI ---
             if (type == "Online")
             {
-                // Online ise Link olarak göster
                 locationHtml = $@"
                     <li><strong>Görüşme Türü:</strong> <span style='color:blue;'>Online (Çevrimiçi)</span></li>
                     <li><strong>Katılım Linki:</strong> <a href='{locationOrLink}' target='_blank'>{locationOrLink}</a></li>
@@ -34,7 +31,6 @@ namespace Burem.API.Helpers
             }
             else
             {
-                // Yüz Yüze ise Oda/Yer bilgisi göster
                 locationHtml = $@"
                     <li><strong>Görüşme Türü:</strong> <span style='color:green;'>Yüz Yüze</span></li>
                     <li><strong>Görüşme Yeri:</strong> {locationOrLink}</li>
@@ -42,7 +38,6 @@ namespace Burem.API.Helpers
                 ";
             }
 
-            // --- ORTAK ŞABLON ---
             string body = $@"
                 <div style='font-family: Arial, sans-serif; color: #333; line-height: 1.6;'>
                     <h3 style='color: #003366;'>Sayın {studentName},</h3>
@@ -61,28 +56,88 @@ namespace Burem.API.Helpers
                     <div style='background-color: #fff0f0; padding: 10px; border: 1px solid #ffcccc; color: #d8000c; font-size: 13px; margin-bottom: 20px;'>
                         <strong>⚠️ ÖNEMLİ UYARI:</strong><br>
                         Randevunuza gelemeyecek olursanız lütfen en geç <strong>24 saat önceden</strong> haber veriniz.
-                        Haber verilmeden gelinmeyen randevular, danışmanlık sürecinizin işleyişini olumsuz etkileyebilir ve yeniden randevu almanızı zorlaştırabilir.
                     </div>
-
-                    <p>Sorularınız için bize bu mail adresinden veya aşağıdaki telefon numarasından ulaşabilirsiniz.</p>
 
                     <br/>
                     <p>Sağlıklı günler dileriz,</p>
-                    <p>
-                        <strong>BÜREM</strong><br/>
-                        Boğaziçi Üniversitesi Rehberlik ve Psikolojik Danışmanlık Merkezi<br/>
-                        <a href='http://burem.bogazici.edu.tr'>http://burem.bogazici.edu.tr</a><br/>
-                        Tel: 0212 359 71 39
-                    </p>
+                    <p><strong>BÜREM</strong><br/>Boğaziçi Üniversitesi Rehberlik ve Psikolojik Danışmanlık Merkezi</p>
                 </div>
             ";
 
             SendMail(toEmail, subject, body);
         }
 
+        /// <summary>
+        /// [YENİ] Terapiste yeni bir danışan atandığında gönderilen özel bilgilendirme maili.
+        /// </summary>
+        public void SendTherapistNotification(string toEmail, string therapistName, string studentName, string date, string time, string type, string locationOrLink)
+        {
+            string subject = "BÜREM - Yeni Danışan Randevusu";
+
+            // Konum bilgisini netleştirelim
+            string locationInfo = type == "Online"
+                ? $"Online (<a href='{locationOrLink}'>Bağlantı</a>)"
+                : $"{locationOrLink} (Yüz Yüze)";
+
+            string body = $@"
+                <div style='font-family: Arial, sans-serif; color: #333; line-height: 1.6;'>
+                    <h3 style='color: #003366;'>Sayın {therapistName},</h3>
+                    <p>Randevu takviminize yeni bir danışan görüşmesi eklenmiştir.</p>
+                    
+                    <div style='background-color: #e6f7ff; padding: 15px; border-left: 5px solid #1890ff; margin: 20px 0;'>
+                        <h4 style='margin-top: 0; color: #003366;'>Randevu Bilgileri</h4>
+                        <ul style='list-style-type: none; padding: 0;'>
+                            <li><strong>Danışan Adı:</strong> {studentName}</li>
+                            <li><strong>Tarih:</strong> {date}</li>
+                            <li><strong>Saat:</strong> {time}</li>
+                            <li><strong>Tür:</strong> {type}</li>
+                            <li><strong>Yer/Link:</strong> {locationInfo}</li>
+                        </ul>
+                    </div>
+
+                    <p>Detayları ve danışan dosyasını panelinizden görüntüleyebilirsiniz.</p>
+                    <br/>
+                    <p>İyi çalışmalar dileriz,<br/><strong>BÜREM Otomasyon Sistemi</strong></p>
+                </div>
+            ";
+
+            SendMail(toEmail, subject, body);
+        }
+
+        public void SendEvaluationEmail(string toEmail, string studentName, string therapistName, string sessionDate)
+        {
+            string subject = "BÜREM - Görüşme Değerlendirme Formu";
+            string evaluationLink = $"https://burembasvuru.bogazici.edu.tr/degerlendirme?student={toEmail}";
+
+            string body = $@"
+                <h3>Merhaba {studentName},</h3>
+                <p>{sessionDate} tarihinde Uzman {therapistName} ile gerçekleştirdiğiniz görüşme tamamlanmıştır.</p>
+                <p>Hizmet kalitemizi artırmak amacıyla görüşmenizi değerlendirmeniz bizim için önemlidir.</p>
+                <p><a href='{evaluationLink}'>Değerlendirme Formunu Doldurmak İçin Tıklayınız</a></p>
+                <br>
+                <p>Sağlıklı günler dileriz,<br>BÜREM Yönetimi</p>";
+
+            SendMail(toEmail, subject, body);
+        }
+
+        public void SendCancellationEmail(string toEmail, string recipientName, string date, string time, string reason)
+        {
+            string subject = "BÜREM - Randevu İptal Bilgilendirmesi";
+            string body = $@"
+                <h3>Sayın {recipientName},</h3>
+                <p>{date} saat {time} tarihindeki randevu aşağıdaki nedenle <strong>iptal edilmiştir</strong>:</p>
+                <div style='background-color: #fff1f0; border: 1px solid #ffa39e; padding: 10px; margin: 10px 0;'>
+                    <strong>İptal Nedeni:</strong> {reason}
+                </div>
+                <p>Bilgilerinize sunarız.</p>
+                <br>
+                <p>BÜREM Yönetimi</p>";
+
+            SendMail(toEmail, subject, body);
+        }
+
         private void SendMail(string toEmail, string subject, string body)
         {
-            // Ayarları appsettings.json dosyasından okuyoruz
             var host = _configuration["MailSettings:Host"];
             var port = int.Parse(_configuration["MailSettings:Port"]);
             var mailFrom = _configuration["MailSettings:MailFrom"];
@@ -90,14 +145,11 @@ namespace Burem.API.Helpers
             var username = _configuration["MailSettings:Username"];
             var password = _configuration["MailSettings:Password"];
 
-            // SMTP İstemcisini Yapılandır
             var smtpClient = new SmtpClient(host)
             {
                 Port = port,
                 EnableSsl = true,
                 DeliveryMethod = SmtpDeliveryMethod.Network,
-                // DİKKAT: Bu sıralama çok önemlidir!
-                // Önce UseDefaultCredentials false yapılmalı, SONRA Credentials atanmalı.
                 UseDefaultCredentials = false,
                 Credentials = new NetworkCredential(username, password)
             };
@@ -111,43 +163,14 @@ namespace Burem.API.Helpers
             };
 
             mailMessage.To.Add(toEmail);
-
-            smtpClient.Send(mailMessage);
-        }
-
-
-        // MailHelper.cs içine eklenecekler:
-
-        public void SendEvaluationEmail(string toEmail, string studentName, string therapistName, string sessionDate)
-        {
-            
-            string subject = "BÜREM - Görüşme Değerlendirme Formu";
-            // Örnek Link - Gerçek projede frontend URL'iniz olmalı
-            string evaluationLink = $"https://burembasvuru.bogazici.edu.tr/degerlendirme?student={toEmail}";
-
-            string body = $@"
-        <h3>Merhaba {studentName},</h3>
-        <p>{sessionDate} tarihinde Uzman {therapistName} ile gerçekleştirdiğiniz görüşme tamamlanmıştır.</p>
-        <p>Hizmet kalitemizi artırmak amacıyla görüşmenizi değerlendirmeniz bizim için önemlidir.</p>
-        <p><a href='{evaluationLink}'>Değerlendirme Formunu Doldurmak İçin Tıklayınız</a></p>
-        <br>
-        <p>Sağlıklı günler dileriz,<br>BÜREM Yönetimi</p>";
-
-            SendMail(toEmail, subject, body);
-        }
-
-        public void SendCancellationEmail(string toEmail, string studentName, string date, string time, string reason)
-        {
-            string subject = "BÜREM - Randevu İptal Bilgilendirmesi";
-            string body = $@"
-        <h3>Merhaba {studentName},</h3>
-        <p>{date} saat {time} tarihindeki randevunuz aşağıdaki nedenle iptal edilmiştir veya durum değişikliği olmuştur:</p>
-        <p><strong>Neden:</strong> {reason}</p>
-        <p>Lütfen sistem üzerinden yeni bir randevu oluşturmak için iletişime geçiniz.</p>
-        <br>
-        <p>BÜREM Yönetimi</p>";
-
-            SendMail(toEmail, subject, body);
+            try
+            {
+                smtpClient.Send(mailMessage);
+            }
+            catch
+            {
+                // Loglama yapılabilir
+            }
         }
     }
 }

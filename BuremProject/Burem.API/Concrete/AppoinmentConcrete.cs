@@ -27,38 +27,34 @@ namespace Burem.API.Concrete
         }
 
         // ========================================================================
-        // 1. MÜSAİTLİK KONTROLÜ (HİBRİT YAPI)
+        // 1. MÜSAİTLİK KONTROLÜ
         // ========================================================================
         public async Task<List<int>> GetAvailableHoursAsync(int therapistId, DateTime date)
         {
-            // Terapist aktif mi?
             var therapist = await _context.Therapists.FindAsync(therapistId);
             if (therapist == null || !therapist.IsActive) return new List<int>();
 
-            // Tatil mi?
             if (await IsHolidayAsync(date)) return new List<int>();
 
-            // Dolu saatleri çek
             var bookedHours = await _context.Appointments
                 .Where(x => x.TherapistId == therapistId &&
                             x.AppointmentDate.Date == date.Date &&
                             x.Status != AppointmentStatus.Cancelled &&
-                            !x.IsDeleted) // Silinenleri hariç tut
+                            !x.IsDeleted)
                 .Select(x => x.AppointmentDate.Hour)
                 .ToListAsync();
 
             var availableHours = new List<int>();
-            // Mesai saatleri: 09:00 - 16:00
             for (int i = 9; i <= 16; i++)
             {
-                if (i == 12) continue; // 12:00 - 13:00 Öğle Arası
+                if (i == 12) continue;
                 if (!bookedHours.Contains(i)) availableHours.Add(i);
             }
             return availableHours;
         }
 
         // ========================================================================
-        // 2. MÜSAİT TERAPİSTLERİ LİSTELEME
+        // 2. MÜSAİT TERAPİSTLERİ GETİRME
         // ========================================================================
         public async Task<List<TherapistAvailabilityDto>> GetAvailableTherapistsAsync(string category)
         {
@@ -78,7 +74,6 @@ namespace Burem.API.Concrete
 
             foreach (var t in activeTherapists)
             {
-                // Gelecekteki aktif randevu sayısını (İş Yükü) hesapla
                 int currentLoad = await _context.Appointments
                     .CountAsync(a => a.TherapistId == t.Id
                                   && a.AppointmentDate >= DateTime.Now
@@ -92,7 +87,6 @@ namespace Burem.API.Concrete
                     Category = t.TherapistType?.Name ?? "Genel Uzman",
                     Campus = t.Campus?.Name ?? "Merkez Kampüs",
                     CurrentLoad = currentLoad,
-                    // Basit Algoritma: Günde 5 slot kapasitesi varsayımı
                     DailySlots = Math.Max(0, 5 - (currentLoad % 5)),
                     WorkingDays = new List<string> { "Pzt", "Sal", "Çar", "Per", "Cum" }
                 });
@@ -101,7 +95,7 @@ namespace Burem.API.Concrete
         }
 
         // ========================================================================
-        // 3. RANDEVU OLUŞTURMA (Create)
+        // 3. RANDEVU OLUŞTURMA
         // ========================================================================
         public async Task<ServiceResultDto> CreateAppointmentAsync(CreateAppointmentDto dto)
         {
@@ -114,16 +108,10 @@ namespace Burem.API.Concrete
                 var therapist = await _context.Therapists.FindAsync(dto.TherapistId);
                 if (therapist == null || !therapist.IsActive) return new ServiceResultDto { IsSuccess = false, Message = "Seçilen terapist aktif değil." };
 
-                // B. Tarih Formatlama (Esnek Yapı)
+                // B. Tarih Formatlama
                 DateTime appointmentDateTime;
                 bool isDateValid = DateTime.TryParseExact(dto.AppointmentDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var datePart);
-
-                if (!isDateValid)
-                {
-                    // Frontend bazen dd.MM.yyyy gönderebilir, onu da deneyelim
-                    isDateValid = DateTime.TryParseExact(dto.AppointmentDate, "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out datePart);
-                }
-
+                if (!isDateValid) isDateValid = DateTime.TryParseExact(dto.AppointmentDate, "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out datePart);
                 if (!isDateValid) return new ServiceResultDto { IsSuccess = false, Message = "Tarih formatı geçersiz." };
 
                 var timePart = TimeSpan.Parse(dto.AppointmentHour);
@@ -132,39 +120,72 @@ namespace Burem.API.Concrete
                 // C. Zaman Kontrolleri
                 if (appointmentDateTime < DateTime.Now) return new ServiceResultDto { IsSuccess = false, Message = "Geçmişe randevu verilemez." };
                 if (appointmentDateTime.Hour == 12) return new ServiceResultDto { IsSuccess = false, Message = "12:00 - 13:00 arası öğle tatilidir." };
-                if (await IsHolidayAsync(appointmentDateTime)) return new ServiceResultDto { IsSuccess = false, Message = "Seçilen tarih tatil günüdür." };
+                try { if (await IsHolidayAsync(appointmentDateTime)) return new ServiceResultDto { IsSuccess = false, Message = "Seçilen tarih tatil günüdür." }; } catch { }
 
                 // D. Oturum ve Öğrenci Kontrolü
                 var session = await _context.Sessions.Include(s => s.Student).FirstOrDefaultAsync(s => s.Id == dto.SessionId);
                 if (session == null) return new ServiceResultDto { IsSuccess = false, Message = "Başvuru bulunamadı." };
 
-                // Öğrenci User tablosunda var mı? (Mail ve ID için gerekli)
                 var studentUser = await _context.Users.FirstOrDefaultAsync(u => u.UserName == session.Student.StudentNo && u.RoleId == 3 && u.IsDeleted == 0);
-                if (studentUser == null) return new ServiceResultDto { IsSuccess = false, Message = "Öğrenci kullanıcısı sistemde bulunamadı." };
 
-                // E. 8 Seans Sınırı
-                int appointmentCount = await _context.Appointments
-                    .CountAsync(a => a.UserId == studentUser.Id && a.SessionId == dto.SessionId && a.Status != AppointmentStatus.Cancelled && !a.IsDeleted);
+                // ==========================================================================================
+                // YENİ MANTIK: İLK RANDEVU VE HAK KONTROLÜ
+                // ==========================================================================================
 
-                if (appointmentCount >= 8) return new ServiceResultDto { IsSuccess = false, Message = "Öğrenci 8 seans sınırını doldurmuştur." };
+                // Bu başvuruya ait daha önce verilmiş (iptal edilmemiş) randevuları çek
+                var existingAppointments = await _context.Appointments
+                    .Where(a => a.SessionId == dto.SessionId && !a.IsDeleted && a.Status != AppointmentStatus.Cancelled)
+                    .ToListAsync();
 
-                // F. Çakışma Kontrolü (Concurrency)
+                // Eğer liste boşsa, bu "İlk Randevu"dur (Ön Görüşme)
+                bool isFirstAppointment = !existingAppointments.Any();
+
+                // Henüz tamamlanmamış (Planlanmış) randevu var mı? (Çakışma önlemek için)
+                bool hasPending = existingAppointments.Any(a => a.Status == AppointmentStatus.Planned);
+                if (hasPending)
+                {
+                    return new ServiceResultDto { IsSuccess = false, Message = "Öğrencinin zaten planlanmış (henüz yapılmamış) bir randevusu var." };
+                }
+
+                int newSessionNumber = 0;
+
+                if (isFirstAppointment)
+                {
+                    // KURAL 1: İlk randevuyu sadece Sekreter (2) veya Admin (1) verebilir.
+                    if (dto.CurrentUserRoleId != 1 && dto.CurrentUserRoleId != 2)
+                    {
+                        return new ServiceResultDto { IsSuccess = false, Message = "İlk randevu (Ön Görüşme) sadece Sekreter tarafından oluşturulabilir." };
+                    }
+
+                    // KURAL 2: İlk randevu haktan düşmez (SessionNumber = 0)
+                    newSessionNumber = 0;
+                }
+                else
+                {
+                    // KURAL 3: Sonraki randevular 8 haktan düşülür.
+                    // SessionNumber'ı 0'dan büyük olanları sayıyoruz.
+                    int countedSessions = existingAppointments.Count(a => a.SessionNumber > 0);
+
+                    if (countedSessions >= 8)
+                    {
+                        return new ServiceResultDto { IsSuccess = false, Message = "Öğrenci 8 seanslık görüşme hakkını doldurmuştur." };
+                    }
+
+                    newSessionNumber = countedSessions + 1;
+                }
+                // ==========================================================================================
+
+                // E. Terapist Çakışma Kontrolü
                 var endDate = appointmentDateTime.AddMinutes(50);
-                bool isTaken = await _context.Appointments.AnyAsync(x =>
-                    x.TherapistId == dto.TherapistId &&
-                    x.Status != AppointmentStatus.Cancelled &&
-                    !x.IsDeleted &&
-                    ((appointmentDateTime >= x.AppointmentDate && appointmentDateTime < x.EndDate) ||
-                     (endDate > x.AppointmentDate && endDate <= x.EndDate)));
+                bool isTaken = await _context.Appointments.AnyAsync(x => x.TherapistId == dto.TherapistId && x.Status != AppointmentStatus.Cancelled && !x.IsDeleted && ((appointmentDateTime >= x.AppointmentDate && appointmentDateTime < x.EndDate) || (endDate > x.AppointmentDate && endDate <= x.EndDate)));
+                if (isTaken) return new ServiceResultDto { IsSuccess = false, Message = "Seçilen saatte terapist dolu." };
 
-                if (isTaken) return new ServiceResultDto { IsSuccess = false, Message = "Seçilen saatte terapistin başka bir randevusu mevcut." };
-
-                // G. Kayıt İşlemi
+                // F. Kayıt
                 var appointment = new Appointment
                 {
                     SessionId = dto.SessionId.Value,
                     TherapistId = dto.TherapistId.Value,
-                    UserId = studentUser.Id,
+                    UserId = studentUser?.Id,
                     AppointmentDate = appointmentDateTime,
                     AppointmentHour = dto.AppointmentHour,
                     EndDate = endDate,
@@ -172,22 +193,24 @@ namespace Burem.API.Concrete
                     AppointmentType = dto.AppointmentType ?? "Yüz Yüze",
                     LocationOrLink = dto.LocationOrLink ?? "Merkez Ofis",
                     CreatedAt = DateTime.Now,
-                    SessionNumber = appointmentCount + 1, // Otomatik artan seans no
-                    IsDeleted = false
+
+                    // Hesapladığımız numara (0 veya 1..8)
+                    SessionNumber = newSessionNumber,
+
+                    IsDeleted = false,
+                    CampusId = therapist.CampusId > 0 ? therapist.CampusId : 1
                 };
 
                 _context.Appointments.Add(appointment);
-
-                // Session tablosunu güncelle
                 session.AdvisorId = dto.TherapistId.Value;
                 session.Status = "Devam Ediyor";
-
                 await _context.SaveChangesAsync();
 
-                // H. Mail Gönderimi (User tablosundaki mail adresine)
-                _ = Task.Run(() => SendEmailSafe(studentUser.Email, session.Student, therapist, appointmentDateTime, dto));
+                string sEmail = studentUser?.Email; if (string.IsNullOrEmpty(sEmail)) sEmail = session.Student.Email;
+                string tEmail = therapist.Email;
+                _ = Task.Run(() => SendEmailSafe(sEmail, tEmail, session.Student, therapist, appointmentDateTime, dto));
 
-                return new ServiceResultDto { IsSuccess = true, Message = "Randevu oluşturuldu." };
+                return new ServiceResultDto { IsSuccess = true, Message = "Randevu başarıyla oluşturuldu." };
             }
             catch (Exception ex)
             {
@@ -196,7 +219,7 @@ namespace Burem.API.Concrete
         }
 
         // ========================================================================
-        // 4. DURUM GÜNCELLEME (İptal/Tamamlandı)
+        // 4. DURUM GÜNCELLEME
         // ========================================================================
         public async Task<ServiceResultDto> UpdateStatusAsync(UpdateAppointmentStatusDto model)
         {
@@ -212,12 +235,9 @@ namespace Burem.API.Concrete
 
                 apt.Status = (AppointmentStatus)model.Status;
 
-                // Durum: İptal veya Gelmedi
                 if (apt.Status == AppointmentStatus.Cancelled || apt.Status == AppointmentStatus.NoShow)
                 {
                     apt.CancellationReason = model.Reason;
-
-                    // İptal Maili
                     if (apt.User != null && !string.IsNullOrEmpty(apt.User.Email))
                     {
                         _ = Task.Run(() => _mailHelper.SendCancellationEmail(
@@ -228,25 +248,18 @@ namespace Burem.API.Concrete
                                 model.Reason ?? "Belirtilmedi"));
                     }
                 }
-                // Durum: Tamamlandı
                 else if (apt.Status == AppointmentStatus.Completed)
                 {
                     if (apt.Session != null)
                     {
-                        // Terapist notlarını Session tablosuna kaydet
                         apt.Session.TherapistNotes = model.TherapistNotes;
                         apt.Session.RiskLevel = model.RiskLevel;
-
                         if (!string.IsNullOrEmpty(model.ReferralDestination))
                         {
                             apt.Session.ReferralDestination = model.ReferralDestination;
                             apt.Session.Status = "Yönlendirildi";
                         }
                     }
-
-                    // Değerlendirme Maili (Opsiyonel)
-                    /* if (apt.User != null && !string.IsNullOrEmpty(apt.User.Email)) { ... SendEvaluationEmail ... }
-                    */
                 }
 
                 await _context.SaveChangesAsync();
@@ -258,44 +271,20 @@ namespace Burem.API.Concrete
             }
         }
 
-        // ========================================================================
-        // 5. RAPORLAMA VE LİSTELEME
-        // ========================================================================
-
-        // Terapist Paneli için Dashboard Verisi (Takvim görünümü vb.)
+        // ... Diğer Metodlar ...
         public async Task<List<TherapistDashboardDto>> GetTherapistScheduleAsync(int therapistId)
         {
-            var appointments = await _context.Appointments
-                .AsNoTracking()
-                .Include(a => a.User)
-                .Include(a => a.Session)
-                .Where(a => a.TherapistId == therapistId && !a.IsDeleted)
-                .OrderBy(a => a.AppointmentDate)
-                .ToListAsync();
-
-            return appointments.Select(a => new TherapistDashboardDto
-            {
-                Id = a.Id,
-                Date = a.AppointmentDate.ToString("dd.MM.yyyy"),
-                Time = a.AppointmentDate.ToString("HH:mm"),
-                StudentName = a.User != null
-                    ? $"{CryptoHelper.Decrypt(a.User.FirstName)} {CryptoHelper.Decrypt(a.User.LastName)}"
-                    : "Bilinmeyen",
-                StudentId = a.User?.UserName ?? "-",
-                Type = a.AppointmentType,
-                Status = a.Status.ToString(),
-                Note = a.Session?.TherapistNotes ?? "",
-                CurrentSessionCount = a.SessionNumber
-            }).ToList();
+            var appointments = await _context.Appointments.AsNoTracking().Include(a => a.User).Include(a => a.Session).Where(a => a.TherapistId == therapistId && !a.IsDeleted).OrderBy(a => a.AppointmentDate).ToListAsync();
+            return appointments.Select(a => new TherapistDashboardDto { Id = a.Id, Date = a.AppointmentDate.ToString("dd.MM.yyyy"), Time = a.AppointmentDate.ToString("HH:mm"), StudentName = a.User != null ? $"{CryptoHelper.Decrypt(a.User.FirstName)} {CryptoHelper.Decrypt(a.User.LastName)}" : "Bilinmeyen", StudentId = a.User?.UserName ?? "-", Type = a.AppointmentType, Status = a.Status.ToString(), Note = a.Session?.TherapistNotes ?? "", CurrentSessionCount = a.SessionNumber }).ToList();
         }
 
-        // Admin/Sekreter Paneli için TÜM Randevular
         public async Task<List<AppointmentDetailDto>> GetAllAppointmentsAsync()
         {
             var appointments = await _context.Appointments
                .AsNoTracking()
                .Include(a => a.User)
                .Include(a => a.Therapist)
+               .Include(a => a.Session).ThenInclude(s => s.Student)
                .Where(a => a.Status != AppointmentStatus.Cancelled && !a.IsDeleted)
                .OrderByDescending(a => a.AppointmentDate)
                .ToListAsync();
@@ -303,29 +292,30 @@ namespace Burem.API.Concrete
             return appointments.Select(a => MapToDto(a)).ToList();
         }
 
-        // Terapist Paneli için SADECE KENDİ Randevuları
+        // --- TERAPİSTİN KENDİ RANDEVULARI (DÜZELTİLDİ) ---
         public async Task<List<TherapistAppointmentDto>> GetTherapistAppointmentsAsync(int therapistId)
         {
             var appointments = await _context.Appointments
                 .AsNoTracking()
                 .Include(a => a.User)
+                .Include(a => a.Session).ThenInclude(s => s.Student) // ÖĞRENCİ BİLGİSİNİ GARANTİYE AL
                 .Where(a => a.TherapistId == therapistId)
                 .Where(a => !a.IsDeleted)
                 .OrderBy(a => a.AppointmentDate)
                 .ToListAsync();
 
-            // Mapping işlemini DTO'ya çevirerek yapıyoruz
             return appointments.Select(a => new TherapistAppointmentDto
             {
                 Id = a.Id,
-                // Şifreli isimleri çöz
-                StudentName = a.User != null
-                    ? $"{CryptoHelper.Decrypt(a.User.FirstName)} {CryptoHelper.Decrypt(a.User.LastName)}"
-                    : "Bilinmeyen",
 
-                StudentId = a.User != null ? a.User.UserName : string.Empty,
+                // İSİM ALMA MANTIĞI: User yoksa Session.Student'tan al
+                StudentName = GetStudentName(a),
+
+                // ID: SessionId veya StudentId (string olarak)
+                StudentId = a.SessionId.ToString(),
+
                 Date = a.AppointmentDate.ToString("dd.MM.yyyy"),
-                Time = a.AppointmentDate.ToString("HH:mm"),
+                Time = a.AppointmentHour ?? a.AppointmentDate.ToString("HH:mm"),
                 Type = a.AppointmentType ?? "Genel",
                 Status = a.Status.ToString(),
                 Note = a.Description ?? "Not girilmemiş",
@@ -333,56 +323,28 @@ namespace Burem.API.Concrete
             }).ToList();
         }
 
-        // ========================================================================
-        // 6. ÖZEL TATİL EKLEME
-        // ========================================================================
         public async Task<ServiceResultDto> AddCustomHolidayAsync(AddHolidayDto dto)
         {
             try
             {
-                // Sadece Admin(1) ve Sekreter(2) ekleyebilir
-                if (dto.CurrentUserRoleId != 1 && dto.CurrentUserRoleId != 2)
-                    return new ServiceResultDto { IsSuccess = false, Message = "Yetkiniz yok." };
-
+                if (dto.CurrentUserRoleId != 1 && dto.CurrentUserRoleId != 2) return new ServiceResultDto { IsSuccess = false, Message = "Yetkiniz yok." };
                 DateTime holidayDate;
-                if (!DateTime.TryParseExact(dto.Date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out holidayDate))
-                    return new ServiceResultDto { IsSuccess = false, Message = "Geçersiz tarih formatı." };
-
-                if (holidayDate < DateTime.Today)
-                    return new ServiceResultDto { IsSuccess = false, Message = "Geçmişe tatil eklenemez." };
-
+                if (!DateTime.TryParseExact(dto.Date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out holidayDate)) return new ServiceResultDto { IsSuccess = false, Message = "Geçersiz tarih formatı." };
+                if (holidayDate < DateTime.Today) return new ServiceResultDto { IsSuccess = false, Message = "Geçmişe tatil eklenemez." };
                 bool exists = await _context.UniversityCustomHolidays.AnyAsync(h => h.HolidayDate == holidayDate);
                 if (exists) return new ServiceResultDto { IsSuccess = false, Message = "Bu tarih zaten tatil." };
-
-                var holiday = new UniversityCustomHoliday
-                {
-                    HolidayDate = holidayDate,
-                    Description = dto.Description ?? "İdari İzin"
-                };
-
+                var holiday = new UniversityCustomHoliday { HolidayDate = holidayDate, Description = dto.Description ?? "İdari İzin" };
                 _context.UniversityCustomHolidays.Add(holiday);
                 await _context.SaveChangesAsync();
-
                 return new ServiceResultDto { IsSuccess = true, Message = "Tatil eklendi." };
             }
-            catch (Exception ex)
-            {
-                return new ServiceResultDto { IsSuccess = false, Message = "Hata: " + ex.Message };
-            }
+            catch (Exception ex) { return new ServiceResultDto { IsSuccess = false, Message = "Hata: " + ex.Message }; }
         }
 
-        // ========================================================================
-        // PRIVATE HELPERS
-        // ========================================================================
         public async Task<bool> IsHolidayAsync(DateTime date)
         {
-            // Hafta sonu kontrolü
             if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday) return true;
-
-            // Resmi tatil kontrolü (Nager.Date kütüphanesi)
             if (HolidaySystem.IsPublicHoliday(date, CountryCode.TR)) return true;
-
-            // Veritabanındaki özel tatiller
             return await _context.UniversityCustomHolidays.AnyAsync(h => h.HolidayDate == date.Date);
         }
 
@@ -391,22 +353,50 @@ namespace Burem.API.Concrete
             return new AppointmentDetailDto
             {
                 Id = a.Id,
-                StudentName = a.User != null ? $"{CryptoHelper.Decrypt(a.User.FirstName)} {CryptoHelper.Decrypt(a.User.LastName)}" : "Bilinmeyen",
+                StudentName = GetStudentName(a),
                 TherapistName = a.Therapist != null ? $"{a.Therapist.FirstName} {a.Therapist.LastName}" : "Bilinmeyen",
                 Date = a.AppointmentDate.ToString("dd.MM.yyyy"),
                 Time = a.AppointmentHour,
                 Status = a.Status.ToString(),
-                Type = a.AppointmentType
+
+                // TÜR ALANINA SEANS BİLGİSİNİ EKLEYELİM Kİ SEKRETER GÖRSÜN
+                Type = a.SessionNumber == 0 ? "Ön Görüşme (Sekreter)" : $"Seans {a.SessionNumber} (Terapist)"
             };
         }
+        // Şifreli ismi çözüp döndüren yardımcı metot
+        private string GetStudentName(Appointment a)
+        {
+            if (a.User != null)
+                return $"{CryptoHelper.Decrypt(a.User.FirstName)} {CryptoHelper.Decrypt(a.User.LastName)}";
 
-        private async Task SendEmailSafe(string email, Student student, Therapist therapist, DateTime date, CreateAppointmentDto dto)
+            if (a.Session != null && a.Session.Student != null)
+                return $"{CryptoHelper.Decrypt(a.Session.Student.FirstName)} {CryptoHelper.Decrypt(a.Session.Student.LastName)}";
+
+            return "Bilinmeyen Danışan";
+        }
+
+        private async Task SendEmailSafe(string studentEmail, string therapistEmail, Student student, Therapist therapist, DateTime date, CreateAppointmentDto dto)
         {
             try
             {
-                if (string.IsNullOrEmpty(email)) return;
                 string tName = therapist != null ? $"{therapist.FirstName} {therapist.LastName}" : "Uzman";
-                _mailHelper.SendAppointmentEmail(email, $"{student.FirstName} {student.LastName}", tName, date.ToString("dd.MM.yyyy"), dto.AppointmentHour, dto.AppointmentType ?? "Genel", dto.LocationOrLink ?? "");
+                string sName = $"{student.FirstName} {student.LastName}";
+                string dateStr = date.ToString("dd.MM.yyyy");
+                string timeStr = dto.AppointmentHour;
+                string type = dto.AppointmentType ?? "Genel";
+                string loc = dto.LocationOrLink ?? "";
+
+                // 1. Öğrenciye Gönder (Eski metot)
+                if (!string.IsNullOrEmpty(studentEmail))
+                {
+                    _mailHelper.SendAppointmentEmail(studentEmail, sName, tName, dateStr, timeStr, type, loc);
+                }
+
+                // 2. Terapiste Gönder (YENİ ÖZEL METOT)
+                if (!string.IsNullOrEmpty(therapistEmail))
+                {
+                    _mailHelper.SendTherapistNotification(therapistEmail, tName, sName, dateStr, timeStr, type, loc);
+                }
             }
             catch (Exception ex) { Console.WriteLine("Mail Hatası: " + ex.Message); }
         }

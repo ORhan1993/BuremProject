@@ -4,7 +4,7 @@ import {
     Layout, Menu, Table, Button, Modal, Form, Input, Tabs, message, 
     Card, Select, Popconfirm, Tag, Space, Row, Col, Statistic, 
     DatePicker, Tooltip, InputNumber, Descriptions, Spin, Switch, Drawer, Collapse, Alert, Typography, 
-    Divider, List, Avatar, Timeline, Checkbox, Progress
+    Divider, List, Avatar, Timeline, Checkbox, Progress,Radio
 } from 'antd';
 import { 
     FormOutlined, PlusOutlined, DeleteOutlined, 
@@ -17,7 +17,7 @@ import {
     AppstoreOutlined, GlobalOutlined, 
     MedicineBoxOutlined, AlertOutlined, FileProtectOutlined,
     RiseOutlined, PieChartOutlined, FallOutlined,
-    LockOutlined, BuildOutlined, IdcardOutlined, UnlockOutlined, ScheduleOutlined
+    LockOutlined, BuildOutlined, IdcardOutlined, UnlockOutlined, ScheduleOutlined,UserAddOutlined
 } from '@ant-design/icons';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -481,6 +481,10 @@ const SessionDetailModule = ({ sessionId, mode = 'view', onBack }: { sessionId: 
                     <Col xs={24} md={12}>
                         <InfoRow label="Öğrenci" value={<Text strong>{sessionData.studentName}</Text>} />
                         <InfoRow label="Öğrenci No" value={sessionData.studentNumber || "---"} />
+                        {/* --- YENİ EKLENEN ALANLAR --- */}
+                        <InfoRow label="Bölüm" value={sessionData.department} />
+                        <InfoRow label="Sınıf" value={sessionData.classLevel} />
+                        <InfoRow label="İletişim" value={`${sessionData.phone} | ${sessionData.email}`} />
                         <InfoRow label="Başvuru Tarihi" value={sessionData.sessionDate} />
                          <InfoRow label="Yerleşke" value={
                             <Select defaultValue="Sarıtepe Yerleşkesi" variant="borderless" style={{ width: '100%', marginLeft: -10 }} disabled={!isEdit}>
